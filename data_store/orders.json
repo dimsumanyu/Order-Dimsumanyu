@@ -1,0 +1,26 @@
+[
+  {
+    "id": "DAN-20261024-025352",
+    "nama": "Siti Rahma",
+    "phone": "085712345678",
+    "opsiPengiriman": "Diantar ke Alamat",
+    "alamat": "Jl. Cempaka No. 88",
+    "metodeBayar": "Transfer Bank",
+    "catatan": "Kukus agak matang",
+    "rincianMenu": "KUKUS ORIGINAL ISI 6 PCS (2x)",
+    "totalHarga": 50000,
+    "items": [
+      {
+        "id": "menu-1",
+        "nama": "KUKUS ORIGINAL ISI 6 PCS",
+        "harga": 25000,
+        "qty": 2,
+        "subtotal": 50000
+      }
+    ],
+    "createdAt": "2026-10-24T02:53:52.655Z",
+    "status": "Baru",
+    "syncedToSheets": true,
+    "sheetsSyncTimestamp": "2026-10-24T02:53:54.630Z"
+  }
+]
