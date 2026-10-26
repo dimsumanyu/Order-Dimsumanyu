@@ -64,23 +64,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Identity - Compact on Mobile */}
           <div
             onClick={() => handleSwitchView('order')}
-            className="flex items-center space-x-2 cursor-pointer group shrink min-w-0"
+            className="flex items-center space-x-2.5 sm:space-x-3 cursor-pointer group shrink min-w-0"
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-800 text-white flex items-center justify-center font-black text-base sm:text-lg shadow-sm shadow-red-700/20 group-hover:scale-105 transition shrink-0">
-              <Utensils className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
+            <img
+              src="/assets/aistudio/WhatsApp_Image_2026-10-09_at_14.12.38_aa6284a2.jpeg"
+              alt="Logo DIMSUMANYU"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover object-top border border-stone-200 shadow-sm shadow-red-700/10 group-hover:scale-105 transition shrink-0 bg-white"
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <h1 className="text-sm sm:text-base font-black tracking-tight text-stone-900 leading-none truncate">
+                <h1 className="text-base sm:text-xl md:text-2xl font-black tracking-tight text-stone-900 leading-none truncate">
                   DIMSUMANYU
                 </h1>
-                <span className="hidden sm:inline-block bg-red-50 text-red-700 border border-red-200 text-[10px] font-extrabold px-1.5 py-0.2 rounded shrink-0">
+                <span className="hidden sm:inline-block bg-red-50 text-red-700 border border-red-200 text-[10px] font-extrabold px-1.5 py-0.5 rounded shrink-0">
                   OFFICIAL
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] font-bold text-red-600 tracking-wider truncate mt-0.5">
-                #SensasiNgedaging
-              </p>
             </div>
           </div>
 
@@ -154,17 +153,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Drawer Top */}
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-black text-sm">
-                    <Utensils className="w-4 h-4" />
-                  </div>
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src="/assets/aistudio/WhatsApp_Image_2026-10-09_at_14.12.38_aa6284a2.jpeg"
+                    alt="Logo DIMSUMANYU"
+                    className="w-9 h-9 rounded-xl object-cover object-top border border-stone-200 bg-white shadow-2xs"
+                  />
                   <div>
-                    <h2 className="text-sm font-black text-stone-900 leading-tight">
+                    <h2 className="text-base font-black text-stone-900 leading-tight">
                       DIMSUMANYU
                     </h2>
-                    <p className="text-[10px] text-red-600 font-bold">
-                      #SensasiNgedaging
-                    </p>
                   </div>
                 </div>
 

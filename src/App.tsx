@@ -8,7 +8,6 @@ import { Navbar } from './components/Navbar';
 import { Banner } from './components/Banner';
 import { CategoryFilter } from './components/CategoryFilter';
 import { MenuCard } from './components/MenuCard';
-import { CartSummary } from './components/CartSummary';
 import { CheckoutForm } from './components/CheckoutForm';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { OrderStatusModal } from './components/OrderStatusModal';
@@ -19,7 +18,7 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { MenuItem, OrderData, AppSettings, ShippingOption, PaymentMethod, OrderStatus } from './types';
 import { INITIAL_MENU, INITIAL_SETTINGS } from './data/initialMenu';
 import { formatRupiah } from './utils/whatsapp';
-import { ArrowRight, Lock } from 'lucide-react';
+import { ArrowRight, Lock, Instagram } from 'lucide-react';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'order' | 'admin'>('order');
@@ -559,15 +558,6 @@ export default function App() {
                       ))}
                     </div>
                   )}
-
-                  {/* Cart Summary Section */}
-                  <CartSummary
-                    cart={cart}
-                    menuItems={menuItems}
-                    onUpdateQty={handleUpdateQty}
-                    onClearCart={handleClearCart}
-                    onProceed={handleProceedToStep2}
-                  />
                 </div>
               ) : (
                 /* Step 2: Checkout, Payment, and Shipping */
@@ -606,10 +596,20 @@ export default function App() {
       {/* Footer with Discreet Admin Portal Link */}
       <footer className="mt-12 border-t border-stone-200/80 bg-white py-6 px-4">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
             <span className="font-extrabold text-stone-900">DIMSUMANYU</span>
             <span>•</span>
             <span className="text-red-600 font-bold">#SensasiNgedaging</span>
+            <span>•</span>
+            <a
+              href="https://www.instagram.com/dimsumanyu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-bold text-stone-700 hover:text-pink-600 transition"
+            >
+              <Instagram className="w-3.5 h-3.5 text-pink-600" />
+              <span>IG: @dimsumanyu</span>
+            </a>
             <span>•</span>
             <span>Pemesanan Online Resmi</span>
           </div>

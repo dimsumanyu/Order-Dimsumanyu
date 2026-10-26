@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, ShieldCheck } from 'lucide-react';
+import { Flame, ShieldCheck, Instagram } from 'lucide-react';
 
 export const Banner: React.FC = () => {
   const [showIgBanner, setShowIgBanner] = useState(false);
@@ -36,12 +36,25 @@ export const Banner: React.FC = () => {
         <div className="absolute top-0 right-0 -mt-6 -mr-6 w-36 h-36 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute bottom-0 right-10 -mb-6 w-32 h-32 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1.5">
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
               #SensasiNgedaging
               <Flame className="w-5 h-5 text-amber-400 fill-amber-400 inline" />
             </h2>
+            
+            {/* Informasi Instagram Resmi */}
+            <div>
+              <a
+                href="https://www.instagram.com/dimsumanyu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 bg-black/25 hover:bg-black/40 text-rose-200 hover:text-white border border-white/15 px-3 py-1 rounded-full text-xs font-bold transition shadow-xs cursor-pointer group"
+              >
+                <Instagram className="w-3.5 h-3.5 text-pink-400 group-hover:scale-110 transition" />
+                <span>IG: @dimsumanyu</span>
+              </a>
+            </div>
           </div>
 
           <div className="flex items-center">
