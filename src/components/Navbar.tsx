@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, Table, ShoppingBag, ShieldCheck, LogOut, ShieldAlert } from 'lucide-react';
+import { Utensils, Table, ShoppingBag, LogOut, Clock } from 'lucide-react';
 
 interface NavbarProps {
   currentStep: number;
@@ -10,6 +10,7 @@ interface NavbarProps {
   isAdminLoggedIn: boolean;
   onOpenAdminLogin: () => void;
   onAdminLogout: () => void;
+  onOpenTrackOrder: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,8 +20,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveView,
   pendingSyncCount,
   isAdminLoggedIn,
-  onOpenAdminLogin,
   onAdminLogout,
+  onOpenTrackOrder,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-xs">
@@ -50,16 +51,27 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right side controls */}
         <div className="flex items-center gap-2">
+          {/* Track order button for everyone */}
+          <button
+            onClick={onOpenTrackOrder}
+            className="flex items-center gap-1.5 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 px-3 py-1.5 rounded-xl border border-stone-200 transition cursor-pointer shadow-xs active:scale-95"
+            title="Lacak status pesanan Anda"
+          >
+            <Clock className="w-3.5 h-3.5 text-orange-600" />
+            <span className="hidden sm:inline">Lacak Pesanan</span>
+            <span className="sm:hidden">Lacak</span>
+          </button>
+
           {/* Normal Customer View */}
           {!isAdminLoggedIn ? (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 text-xs font-bold bg-stone-100 text-stone-700 px-3 py-1.5 rounded-full border border-stone-200">
                 <ShoppingBag className="w-3.5 h-3.5 text-red-600" />
                 <span className="hidden sm:inline">
-                  {currentStep === 1 ? 'Langkah 1/2: Pilih Menu' : 'Langkah 2/2: Checkout & Bayar'}
+                  {currentStep === 1 ? '1/2: Menu' : '2/2: Checkout'}
                 </span>
                 <span className="sm:hidden">
-                  {currentStep === 1 ? '1/2 Menu' : '2/2 Bayar'}
+                  {currentStep === 1 ? 'Menu' : 'Bayar'}
                 </span>
                 {cartCount > 0 && (
                   <span className="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full ml-0.5">
@@ -87,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               ) : (
                 <button
                   onClick={() => setActiveView('order')}
-                  className="flex items-center gap-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl transition shadow-sm cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-xl transition shadow-sm cursor-pointer"
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
                   <span>Lihat Toko</span>

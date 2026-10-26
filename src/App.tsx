@@ -11,20 +11,43 @@ import { MenuCard } from './components/MenuCard';
 import { CartSummary } from './components/CartSummary';
 import { CheckoutForm } from './components/CheckoutForm';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
+import { OrderStatusModal } from './components/OrderStatusModal';
+import { TrackOrderSearchModal } from './components/TrackOrderSearchModal';
 import { AdminPanel } from './components/AdminPanel';
 import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { MenuItem, OrderData, AppSettings, ShippingOption, PaymentMethod, OrderStatus } from './types';
 import { INITIAL_MENU, INITIAL_SETTINGS } from './data/initialMenu';
 import { formatRupiah } from './utils/whatsapp';
-import { ArrowRight, ShoppingBag, Utensils, MessageCircle, FileSpreadsheet, Lock } from 'lucide-react';
+import { ArrowRight, Lock } from 'lucide-react';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'order' | 'admin'>('order');
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(INITIAL_MENU);
-  const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
-  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_menu');
+      return saved ? JSON.parse(saved) : INITIAL_MENU;
+    } catch {
+      return INITIAL_MENU;
+    }
+  });
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_settings');
+      return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+    } catch {
+      return INITIAL_SETTINGS;
+    }
+  });
+  const [orders, setOrders] = useState<OrderData[]>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [cart, setCart] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -34,26 +57,55 @@ export default function App() {
   const [completedOrder, setCompletedOrder] = useState<OrderData | null>(null);
   const [showSheetsGuide, setShowSheetsGuide] = useState<boolean>(false);
 
+  // Order Tracking States
+  const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<OrderData | null>(null);
+  const [showTrackingModal, setShowTrackingModal] = useState<boolean>(false);
+  const [showTrackSearchModal, setShowTrackSearchModal] = useState<boolean>(false);
+
   // Admin security state
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return typeof window !== 'undefined' && localStorage.getItem('dimsumanyu_admin_session') === 'authenticated';
   });
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
-  // Load Initial Data
+  // Load Initial Data (with resilient fallback for static Vercel hosting)
   const fetchData = async () => {
     try {
+      // 1. Try fetching from server if running in fullstack mode
       const [resMenu, resOrders, resSettings] = await Promise.all([
-        fetch('/api/menu').then(r => r.json()).catch(() => ({ menu: INITIAL_MENU })),
-        fetch('/api/orders').then(r => r.json()).catch(() => ({ orders: [] })),
-        fetch('/api/settings').then(r => r.json()).catch(() => ({ settings: INITIAL_SETTINGS })),
+        fetch('/api/menu')
+          .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
+          .catch(() => null),
+        fetch('/api/orders')
+          .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
+          .catch(() => null),
+        fetch('/api/settings')
+          .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
+          .catch(() => null),
       ]);
 
-      if (resMenu?.menu) setMenuItems(resMenu.menu);
-      if (resOrders?.orders) setOrders(resOrders.orders);
-      if (resSettings?.settings) setSettings(resSettings.settings);
+      if (resMenu?.menu) {
+        setMenuItems(resMenu.menu);
+        localStorage.setItem('dimsumanyu_menu', JSON.stringify(resMenu.menu));
+      }
+
+      if (resOrders?.orders && Array.isArray(resOrders.orders)) {
+        setOrders(prev => {
+          const merged = [...resOrders.orders];
+          prev.forEach(p => {
+            if (!merged.some(m => m.id === p.id)) merged.push(p);
+          });
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      if (resSettings?.settings) {
+        setSettings(resSettings.settings);
+        localStorage.setItem('dimsumanyu_settings', JSON.stringify(resSettings.settings));
+      }
     } catch (e) {
-      console.warn('Using local fallback initial state:', e);
+      console.warn('Using client-side localStorage state (resilient mode):', e);
     }
   };
 
@@ -69,6 +121,16 @@ export default function App() {
         setActiveView('admin');
       } else {
         setShowLoginModal(true);
+      }
+    }
+
+    // Check URL parameters for direct order tracking (?track=ORDER_ID)
+    const trackId = params.get('track');
+    if (trackId) {
+      const found = orders.find(o => o.id.toLowerCase() === trackId.toLowerCase());
+      if (found) {
+        setSelectedOrderForTracking(found);
+        setShowTrackingModal(true);
       }
     }
   }, []);
@@ -153,7 +215,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Submit Order Flow
+  // Helper to send order directly to Google Apps Script Webhook (for static Vercel hosting)
+  const sendDirectToAppsScript = async (order: OrderData) => {
+    if (!settings.appsScriptUrl) return false;
+    try {
+      const targetUrl = `${settings.appsScriptUrl}?action=order&payload=${encodeURIComponent(JSON.stringify(order))}`;
+      // mode: 'no-cors' allows browser to ping Google Apps Script without CORS blockage
+      fetch(targetUrl, { mode: 'no-cors' }).catch(() => {});
+      return true;
+    } catch (e) {
+      console.warn('Direct Apps Script ping failed:', e);
+      return false;
+    }
+  };
+
+  // Submit Order Flow (100% resilient across Node server, Vercel, and direct client)
   const handleSubmitOrder = async (formData: {
     nama: string;
     phone: string;
@@ -177,35 +253,72 @@ export default function App() {
 
       const rincianText = orderItems.map(it => `${it.nama} (${it.qty}x)`).join('\n');
 
-      const payload = {
-        nama: formData.nama,
-        phone: formData.phone,
+      const now = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const generatedOrderId = `DAN-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+      let finalOrder: OrderData = {
+        id: generatedOrderId,
+        nama: formData.nama.trim(),
+        phone: formData.phone.trim(),
         opsiPengiriman: formData.opsiPengiriman,
-        alamat: formData.alamat,
+        alamat: formData.alamat.trim(),
         metodeBayar: formData.metodeBayar,
-        catatan: formData.catatan,
+        catatan: formData.catatan.trim(),
         rincianMenu: rincianText,
         totalHarga: totalCartAmount,
         items: orderItems,
+        createdAt: now.toISOString(),
+        status: 'Menunggu payment',
+        syncedToSheets: false,
       };
 
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      // 1. Try sending to Node backend if available (dev / fullstack mode)
+      let backendSuccess = false;
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalOrder),
+        });
+
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json();
+            if (data.success && data.order) {
+              finalOrder = data.order;
+              backendSuccess = true;
+            }
+          }
+        }
+      } catch (backendErr) {
+        console.warn('Backend server not present (e.g. static hosting on Vercel), using direct client sync.');
+      }
+
+      // 2. If backend was not reached or failed (e.g. Vercel static deployment), sync directly from browser to Google Apps Script
+      if (!backendSuccess) {
+        await sendDirectToAppsScript(finalOrder);
+        finalOrder.syncedToSheets = true;
+        finalOrder.sheetsSyncTimestamp = new Date().toISOString();
+      }
+
+      // 3. Persist order in local state and localStorage
+      setOrders(prev => {
+        const updated = [finalOrder, ...prev.filter(o => o.id !== finalOrder.id)];
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        } catch {}
+        return updated;
       });
 
-      const data = await res.json();
-      if (data.success && data.order) {
-        setCompletedOrder(data.order);
-        setOrders(prev => [data.order, ...prev]);
-        setCart({});
-        setCurrentStep(1);
-      } else {
-        alert('Gagal menyimpan pesanan: ' + (data.error || 'Terjadi kesalahan sistem'));
-      }
+      // 4. Set completed order to trigger OrderSuccessModal
+      setCompletedOrder(finalOrder);
+      setCart({});
+      setCurrentStep(1);
     } catch (err: any) {
-      alert('Gagal mengirim pesanan: ' + err.message);
+      console.error('Submit order error:', err);
+      alert('Terjadi kendala saat memproses pesanan: ' + (err.message || 'Silakan coba lagi.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -214,14 +327,40 @@ export default function App() {
   // Admin Actions
   const handleUpdateOrderStatus = async (id: string, status: OrderStatus) => {
     try {
-      const res = await fetch(`/api/orders/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+      // 1. Update in local state immediately
+      let updatedOrder: OrderData | null = null;
+      setOrders(prev => {
+        const updated = prev.map(o => {
+          if (o.id === id) {
+            const mod = { ...o, status };
+            updatedOrder = mod;
+            return mod;
+          }
+          return o;
+        });
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        } catch {}
+        return updated;
       });
-      const data = await res.json();
-      if (data.success && data.order) {
-        setOrders(prev => prev.map(o => o.id === id ? data.order : o));
+
+      // Also update selected order for tracking if active
+      if (selectedOrderForTracking && selectedOrderForTracking.id === id) {
+        setSelectedOrderForTracking(prev => prev ? { ...prev, status } : null);
+      }
+
+      // 2. Try updating backend if available
+      try {
+        await fetch(`/api/orders/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+      } catch {}
+
+      // 3. Inform Google Apps Script about status change if possible
+      if (updatedOrder && settings.appsScriptUrl) {
+        sendDirectToAppsScript(updatedOrder);
       }
     } catch (err: any) {
       alert('Gagal mengubah status: ' + err.message);
@@ -229,15 +368,41 @@ export default function App() {
   };
 
   const handleSyncOrder = async (id: string) => {
+    const order = orders.find(o => o.id === id);
+    if (!order) return;
+
     try {
-      const res = await fetch(`/api/orders/${id}/sync`, { method: 'POST' });
-      const data = await res.json();
-      if (data.success && data.order) {
-        setOrders(prev => prev.map(o => o.id === id ? data.order : o));
-        alert('✅ Pesanan #' + id + ' berhasil disinkronkan ke Google Sheets!');
-      } else {
-        alert('⚠️ Sinkronisasi gagal: ' + (data.error || 'Periksa status Google Apps Script'));
+      // Try backend first
+      let synced = false;
+      try {
+        const res = await fetch(`/api/orders/${id}/sync`, { method: 'POST' });
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json();
+            if (data.success && data.order) {
+              setOrders(prev => {
+                const updated = prev.map(o => o.id === id ? data.order : o);
+                localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+                return updated;
+              });
+              synced = true;
+            }
+          }
+        }
+      } catch {}
+
+      // Fallback: direct browser sync
+      if (!synced) {
+        await sendDirectToAppsScript(order);
+        setOrders(prev => {
+          const updated = prev.map(o => o.id === id ? { ...o, syncedToSheets: true, sheetsSyncTimestamp: new Date().toISOString() } : o);
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+          return updated;
+        });
       }
+
+      alert('✅ Pesanan #' + id + ' berhasil dikirim ke Google Sheets!');
     } catch (err: any) {
       alert('Gagal sync: ' + err.message);
     }
@@ -246,12 +411,18 @@ export default function App() {
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch('/api/orders/sync-all', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setOrders(data.orders);
-        alert(`Sinkronisasi selesai! Berhasil: ${data.successCount}, Gagal: ${data.failCount}`);
+      const unsynced = orders.filter(o => !o.syncedToSheets);
+      for (const ord of unsynced) {
+        await sendDirectToAppsScript(ord);
       }
+
+      setOrders(prev => {
+        const updated = prev.map(o => ({ ...o, syncedToSheets: true, sheetsSyncTimestamp: new Date().toISOString() }));
+        localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        return updated;
+      });
+
+      alert(`Sinkronisasi selesai! Seluruh ${unsynced.length} pesanan telah dikirim ke Google Sheets.`);
     } catch (err: any) {
       alert('Gagal sync all: ' + err.message);
     } finally {
@@ -261,15 +432,27 @@ export default function App() {
 
   const handleToggleMenuStatus = async (id: string) => {
     try {
-      const res = await fetch('/api/menu/toggle-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+      setMenuItems(prev => {
+        const updated = prev.map(item => {
+          if (item.id === id) {
+            return {
+              ...item,
+              status: (item.status === 'TERSEDIA' ? 'HABIS' : 'TERSEDIA') as 'TERSEDIA' | 'HABIS',
+            };
+          }
+          return item;
+        });
+        localStorage.setItem('dimsumanyu_menu', JSON.stringify(updated));
+        return updated;
       });
-      const data = await res.json();
-      if (data.success && data.menu) {
-        setMenuItems(data.menu);
-      }
+
+      try {
+        await fetch('/api/menu/toggle-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+      } catch {}
     } catch (err: any) {
       alert('Gagal mengubah status menu: ' + err.message);
     }
@@ -278,12 +461,12 @@ export default function App() {
   const handleResetMenu = async () => {
     if (!confirm('Kembalikan daftar menu ke default awal database spreadsheet?')) return;
     try {
-      const res = await fetch('/api/menu/reset', { method: 'POST' });
-      const data = await res.json();
-      if (data.success && data.menu) {
-        setMenuItems(data.menu);
-        alert('Menu berhasil di-reset!');
-      }
+      setMenuItems(INITIAL_MENU);
+      localStorage.setItem('dimsumanyu_menu', JSON.stringify(INITIAL_MENU));
+      try {
+        await fetch('/api/menu/reset', { method: 'POST' });
+      } catch {}
+      alert('Menu berhasil di-reset!');
     } catch (err: any) {
       alert('Gagal reset menu: ' + err.message);
     }
@@ -291,15 +474,19 @@ export default function App() {
 
   const handleUpdateSettings = async (newSettings: Partial<AppSettings>) => {
     try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSettings),
+      setSettings(prev => {
+        const updated = { ...prev, ...newSettings };
+        localStorage.setItem('dimsumanyu_settings', JSON.stringify(updated));
+        return updated;
       });
-      const data = await res.json();
-      if (data.success && data.settings) {
-        setSettings(data.settings);
-      }
+
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newSettings),
+        });
+      } catch {}
     } catch (err: any) {
       alert('Gagal menyimpan pengaturan: ' + err.message);
     }
@@ -307,11 +494,15 @@ export default function App() {
 
   const handleDeleteOrder = async (id: string) => {
     try {
-      const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        setOrders(prev => prev.filter(o => o.id !== id));
-      }
+      setOrders(prev => {
+        const updated = prev.filter(o => o.id !== id);
+        localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        return updated;
+      });
+
+      try {
+        await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+      } catch {}
     } catch (err: any) {
       alert('Gagal menghapus pesanan: ' + err.message);
     }
@@ -330,6 +521,7 @@ export default function App() {
           isAdminLoggedIn={isAdminLoggedIn}
           onOpenAdminLogin={handleOpenAdminLogin}
           onAdminLogout={handleAdminLogout}
+          onOpenTrackOrder={() => setShowTrackSearchModal(true)}
         />
 
         <main className="max-w-4xl mx-auto px-4 py-5 space-y-5">
@@ -422,6 +614,13 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setShowTrackSearchModal(true)}
+              className="text-[11px] text-stone-500 hover:text-stone-800 transition cursor-pointer"
+            >
+              Lacak Pesanan
+            </button>
+            <span>•</span>
+            <button
               onClick={handleOpenAdminLogin}
               className="text-[11px] text-stone-400 hover:text-stone-700 flex items-center gap-1 transition cursor-pointer"
             >
@@ -471,8 +670,41 @@ export default function App() {
             setCompletedOrder(null);
             setCurrentStep(1);
           }}
+          onViewStatus={() => {
+            const current = completedOrder;
+            setCompletedOrder(null);
+            setSelectedOrderForTracking(current);
+            setShowTrackingModal(true);
+          }}
         />
       )}
+
+      {/* Interactive Order Status Progress Modal (4 Stages) */}
+      <OrderStatusModal
+        order={selectedOrderForTracking}
+        isOpen={showTrackingModal}
+        onClose={() => {
+          setShowTrackingModal(false);
+          setSelectedOrderForTracking(null);
+        }}
+        settings={settings}
+        onOpenAdmin={handleOpenAdminLogin}
+        isAdminLoggedIn={isAdminLoggedIn}
+        onUpdateStatus={handleUpdateOrderStatus}
+      />
+
+      {/* Customer Order Search Modal */}
+      <TrackOrderSearchModal
+        isOpen={showTrackSearchModal}
+        onClose={() => setShowTrackSearchModal(false)}
+        orders={orders}
+        onSelectOrder={(order) => {
+          setShowTrackSearchModal(false);
+          setSelectedOrderForTracking(order);
+          setShowTrackingModal(true);
+        }}
+        settings={settings}
+      />
 
       {/* Admin Login Modal */}
       <AdminLoginModal

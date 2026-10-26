@@ -16,7 +16,12 @@ export interface CartItem {
 
 export type ShippingOption = 'Diantar ke Alamat' | 'Ambil di Outlet';
 export type PaymentMethod = 'QRIS' | 'Transfer Bank' | 'Tunai (COD / Ambil di Tempat)';
-export type OrderStatus = 'Baru' | 'Diproses' | 'Siap / Diantar' | 'Selesai' | 'Dibatalkan';
+export type OrderStatus = 
+  | 'Menunggu payment'
+  | 'Pesanan sedang dimasak'
+  | 'Pesanan siap'
+  | 'Pesanan selesai'
+  | 'Dibatalkan';
 
 export interface OrderData {
   id: string;

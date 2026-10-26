@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { INITIAL_MENU, INITIAL_SETTINGS } from './src/data/initialMenu';
-import { OrderData, AppSettings, MenuItem } from './src/types/index';
+import { OrderData, AppSettings, MenuItem, OrderStatus } from './src/types/index';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -186,7 +186,7 @@ async function startServer() {
         totalHarga: orderData.totalHarga || 0,
         items: orderData.items || [],
         createdAt: new Date().toISOString(),
-        status: 'Baru',
+        status: (orderData.status as OrderStatus) || 'Menunggu payment',
         syncedToSheets: false
       };
 

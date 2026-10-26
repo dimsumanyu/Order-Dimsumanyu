@@ -14,7 +14,8 @@ import {
   Trash2,
   ExternalLink,
   Save,
-  Check
+  Check,
+  Copy
 } from 'lucide-react';
 import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
@@ -166,6 +167,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
+      {/* Admin Direct Link Info Card */}
+      <div className="bg-gradient-to-r from-stone-900 to-stone-800 text-white rounded-2xl p-4 shadow-xs space-y-2 border border-stone-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                LINK RAHASIA PENGELOLA
+              </span>
+              <span className="text-[11px] text-emerald-400 font-bold">
+                ● Aktif &amp; Terproteksi Password
+              </span>
+            </div>
+            <h4 className="font-extrabold text-xs sm:text-sm text-white">
+              Tautan Khusus Admin untuk Mengontrol Status Pesanan
+            </h4>
+            <p className="text-[11px] text-stone-300">
+              Gunakan tautan ini untuk membuka halaman admin dari perangkat manapun. Link untuk pembeli tidak memiliki akses ke halaman ini.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <code className="bg-black/50 text-emerald-400 font-mono text-[11px] px-3 py-2 rounded-xl border border-white/10 select-all">
+              {typeof window !== 'undefined' ? `${window.location.origin}/?admin=true` : '?admin=true'}
+            </code>
+            <button
+              onClick={() => {
+                const adminUrl = `${window.location.origin}/?admin=true`;
+                navigator.clipboard.writeText(adminUrl);
+                alert('Tautan admin berhasil disalin:\n' + adminUrl);
+              }}
+              className="bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Salin Link</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Tab Switcher */}
       <div className="flex items-center justify-between border-b border-stone-200 pb-2 gap-2 overflow-x-auto no-scrollbar">
         <div className="flex space-x-1.5">
@@ -257,7 +297,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {/* Status pills filter */}
             <div className="flex space-x-1.5 overflow-x-auto no-scrollbar text-xs">
-              {['ALL', 'Baru', 'Diproses', 'Siap / Diantar', 'Selesai', 'Dibatalkan'].map((st) => (
+              {['ALL', 'Menunggu payment', 'Pesanan sedang dimasak', 'Pesanan siap', 'Pesanan selesai', 'Dibatalkan'].map((st) => (
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
@@ -370,20 +410,62 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           {formatRupiah(order.totalHarga)}
                         </p>
 
-                        {/* Status selector */}
-                        <div className="flex sm:justify-end items-center gap-1.5 pt-1">
-                          <span className="text-[10px] text-stone-400 font-bold uppercase">Status:</span>
-                          <select
-                            value={order.status}
-                            onChange={(e) => onUpdateStatus(order.id, e.target.value as OrderStatus)}
-                            className="text-xs font-bold px-2 py-1 rounded-lg border border-stone-200 bg-stone-50 focus:border-red-600 outline-none"
+                        {/* Status selector & WA broadcast */}
+                        <div className="flex flex-col sm:items-end gap-1.5 pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-stone-400 font-bold uppercase">Status:</span>
+                            <select
+                              value={order.status}
+                              onChange={(e) => onUpdateStatus(order.id, e.target.value as OrderStatus)}
+                              className={`text-xs font-black px-2.5 py-1 rounded-xl border outline-none cursor-pointer transition ${
+                                order.status === 'Menunggu payment'
+                                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                  : order.status === 'Pesanan sedang dimasak'
+                                  ? 'bg-orange-50 text-orange-900 border-orange-300'
+                                  : order.status === 'Pesanan siap'
+                                  ? 'bg-blue-50 text-blue-900 border-blue-300'
+                                  : order.status === 'Pesanan selesai'
+                                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                                  : 'bg-red-50 text-red-900 border-red-300'
+                              }`}
+                            >
+                              <option value="Menunggu payment">Menunggu payment</option>
+                              <option value="Pesanan sedang dimasak">Pesanan sedang dimasak</option>
+                              <option value="Pesanan siap">Pesanan siap</option>
+                              <option value="Pesanan selesai">Pesanan selesai</option>
+                              <option value="Dibatalkan">Dibatalkan</option>
+                            </select>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              let msg = `*UPDATE STATUS PESANAN DIMSUMANYU*\n`;
+                              msg += `ID Pesanan: #${order.id}\n`;
+                              msg += `Halo Kak *${order.nama}*,\n\n`;
+                              if (order.status === 'Menunggu payment') {
+                                msg += `Pesanan Anda telah kami terima dan saat ini berstatus: *Menunggu Payment* 💳.\nMohon kirimkan bukti pembayaran / transfer agar pesanan langsung kami proses ya Kak. Terima kasih!`;
+                              } else if (order.status === 'Pesanan sedang dimasak') {
+                                msg += `Pesanan Anda saat ini berstatus: *SEDANG DIMASAK* 🔥 di dapur Dimsum Anyu.\nMohon ditunggu sebentar ya Kak!`;
+                              } else if (order.status === 'Pesanan siap') {
+                                msg += `Pesanan Anda saat ini berstatus: *PESANAN SUDAH SIAP* 📦!\n${
+                                  order.opsiPengiriman === 'Ambil di Outlet'
+                                    ? 'Silakan datang ke outlet Dimsum Anyu untuk pengambilan ya Kak.'
+                                    : 'Pesanan sudah siap dan akan segera diantar oleh kurir ke alamat Anda.'
+                                }`;
+                              } else if (order.status === 'Pesanan selesai') {
+                                msg += `Pesanan Anda telah *SELESAI* ✅.\nTerima kasih banyak telah memesan di Dimsum Anyu! Selamat menikmati #SensasiNgedaging 🙏`;
+                              } else {
+                                msg += `Pesanan Anda saat ini berstatus: *${order.status}*.`;
+                              }
+                              window.open(createWhatsAppUrl(order.phone, msg), '_blank');
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                            title="Kirim pesan status ke WA pelanggan"
                           >
-                            <option value="Baru">Baru</option>
-                            <option value="Diproses">Diproses</option>
-                            <option value="Siap / Diantar">Siap / Diantar</option>
-                            <option value="Selesai">Selesai</option>
-                            <option value="Dibatalkan">Dibatalkan</option>
-                          </select>
+                            <MessageCircle className="w-3 h-3" />
+                            <span>Kirim Update Status ke WA</span>
+                          </button>
                         </div>
                       </div>
                     </div>

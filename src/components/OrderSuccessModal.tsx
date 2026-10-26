@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, MessageCircle, ArrowRight, X } from 'lucide-react';
+import { CheckCircle2, MessageCircle, ArrowRight, X, Clock } from 'lucide-react';
 import { OrderData, AppSettings } from '../types';
 import { formatRupiah, generateWhatsAppMessage, createWhatsAppUrl } from '../utils/whatsapp';
 
@@ -8,6 +8,7 @@ interface OrderSuccessModalProps {
   settings: AppSettings;
   onClose: () => void;
   onNewOrder: () => void;
+  onViewStatus: () => void;
 }
 
 export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
@@ -15,6 +16,7 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   settings,
   onClose,
   onNewOrder,
+  onViewStatus,
 }) => {
   const waMessage = generateWhatsAppMessage(order);
   const waUrl = createWhatsAppUrl(settings.adminWaNumber, waMessage);
@@ -77,6 +79,14 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
           >
             <MessageCircle className="w-4 h-4" />
             <span>Kirim Pesanan ke WhatsApp Admin</span>
+          </button>
+
+          <button
+            onClick={onViewStatus}
+            className="w-full bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 font-bold py-2.5 px-4 rounded-xl transition text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Clock className="w-4 h-4 text-orange-600" />
+            <span>Lacak Status Pesanan Ini</span>
           </button>
 
           <button
