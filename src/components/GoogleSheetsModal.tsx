@@ -237,49 +237,55 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           </div>
 
           {/* Critical: How to make AdminUsers sheet appear */}
+          {/* Critical: How to make admin user sheet appear & redeploy notice */}
           <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center font-black text-xs">!</div>
               <h4 className="font-extrabold text-amber-950 text-xs sm:text-sm">
-                Belum Muncul Sheet "AdminUsers" di Google Sheets Anda?
+                Petunjuk Sheet "admin user" &amp; Wajib Deploy Versi Baru
               </h4>
             </div>
 
-            <p className="text-[11px] text-amber-900 leading-relaxed">
-              Google Apps Script <b>tidak otomatis mengubah spreadsheet</b> hanya dengan menyalin kode. Skrip harus dijalankan sekali (klik Run) agar membuat sheet <b>AdminUsers</b> dan <b>Pesanan</b>.
-            </p>
+            <div className="bg-red-50 border border-red-300 rounded-xl p-3 text-[11px] text-red-950 space-y-1">
+              <p className="font-black text-red-900 flex items-center gap-1.5">
+                <span>⚠️ PENYEBAB UTAMA SINKRONISASI / LOGIN BELUM MASUK:</span>
+              </p>
+              <p className="leading-relaxed">
+                Di Google Apps Script, jika Anda hanya menyalin kode baru dan menekan simpan, <b>Web App belum diperbarui</b> sampai Anda men-deploy <b>Versi Baru</b>!
+              </p>
+              <p className="font-bold text-red-800">
+                Langkah: Klik <b>Terapkan (Deploy)</b> di kanan atas &rarr; <b>Kelola penerapan (Manage deployments)</b> &rarr; Klik ikon <b>Pensil (Edit)</b> &rarr; Pada Versi pilih <b>"Versi baru" (New version)</b> &rarr; Klik <b>Terapkan</b>.
+              </p>
+            </div>
 
             <div className="space-y-2.5 pt-1">
               <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5 shadow-xs">
                 <p className="font-extrabold text-stone-900 text-[11px] flex items-center gap-1.5">
-                  <Play className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
-                  <span>CARA 1 (Paling Cepat - 5 Detik di Apps Script):</span>
-                </p>
-                <ol className="list-decimal list-inside space-y-1 text-[11px] text-stone-700">
-                  <li>Buka tab editor Apps Script Anda (klik tombol <b>"Buka Google Apps Script"</b> di atas).</li>
-                  <li>Di bilah toolbar atas (sebelah tombol Debug), <b>klik menu pilihan fungsi</b> dan pilih <b>setupSheets</b>.</li>
-                  <li>Klik tombol <b>▷ Jalankan (Run)</b>.</li>
-                  <li>Buka spreadsheet Anda — tab <b>AdminUsers</b> & <b>Pesanan</b> langsung terbuat otomatis!</li>
-                </ol>
-              </div>
-
-              <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5 shadow-xs">
-                <p className="font-extrabold text-stone-900 text-[11px] flex items-center gap-1.5">
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
-                  <span>CARA 2 (Buat Manual di Google Sheets):</span>
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Struktur Tab Sheet "admin user" di Spreadsheet Anda:</span>
                 </p>
                 <p className="text-[11px] text-stone-700">
-                  Di Google Sheets, klik tanda <b>+</b> (Tambah sheet) di pojok kiri bawah, ganti nama sheet menjadi: <b className="font-mono text-emerald-800">AdminUsers</b>.
+                  Nama tab sheet Anda dapat berupa: <b className="font-mono text-emerald-800">admin user</b>, <b className="font-mono text-emerald-800">Admin User</b>, atau <b className="font-mono text-emerald-800">AdminUsers</b> (semua dikenali otomatis).
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 text-[10px] font-mono bg-stone-50 p-2 rounded-lg border border-stone-200">
                   <div><b>A:</b> Username</div>
                   <div><b>B:</b> Password</div>
-                  <div><b>C:</b> Nama / Peran</div>
-                  <div><b>D:</b> Status</div>
-                  <div><b>E:</b> Terakhir Login</div>
+                  <div><b>C:</b> PIN (opsional)</div>
+                  <div><b>D:</b> Nama/Peran</div>
+                  <div><b>E:</b> Status (Aktif)</div>
                 </div>
                 <p className="text-[10px] text-stone-600 font-mono bg-emerald-50/70 p-1.5 rounded border border-emerald-200">
-                  Isi Baris 2: admin | dimsumanyu123 | Owner / Admin Utama | Aktif | -
+                  Contoh: admin | dimsumanyu123 | 290501 | Owner / Admin Utama | Aktif
+                </p>
+              </div>
+
+              <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5 shadow-xs">
+                <p className="font-extrabold text-stone-900 text-[11px] flex items-center gap-1.5">
+                  <Play className="w-3.5 h-3.5 text-blue-600 fill-blue-600" />
+                  <span>Atau Buat Otomatis Lewat Apps Script (1 Klik):</span>
+                </p>
+                <p className="text-[11px] text-stone-700">
+                  Di editor Apps Script, pada menu drop-down pilihan fungsi di toolbar atas, pilih <b>setupSheets</b> lalu klik <b>▷ Jalankan (Run)</b>.
                 </p>
               </div>
             </div>
@@ -289,7 +295,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           <div className="border border-stone-200 rounded-2xl p-4 space-y-3 bg-white">
             <h4 className="font-extrabold text-stone-900 text-xs flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-emerald-600" />
-              <span>Langkah Lengkap Pasang / Perbarui Code.gs</span>
+              <span>4 Langkah Singkat Memperbarui Code.gs</span>
             </h4>
 
             <ol className="space-y-2 text-[11px] text-stone-700 list-decimal list-inside pl-1">
@@ -297,13 +303,13 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                 Salin seluruh kode di bawah ini menggunakan tombol <b>"Salin Kode Code.gs"</b>.
               </li>
               <li className="leading-relaxed">
-                Di editor Google Apps Script, buka file <b>Code.gs</b>, hapus isinya, dan <b>Paste (Tempelkan)</b> kode baru ini. Lalu klik ikon <b>Simpan</b>.
+                Di Google Apps Script, buka file <b>Code.gs</b>, hapus seluruh isinya, dan <b>Paste (Tempelkan)</b> kode baru ini. Klik ikon <b>Simpan</b>.
               </li>
               <li className="leading-relaxed">
-                Pilih fungsi <b>setupSheets</b> di bilah atas lalu klik <b>▷ Jalankan (Run)</b> untuk membuat sheet.
+                (Opsional) Pilih fungsi <b>setupSheets</b> di bilah atas lalu klik <b>▷ Jalankan (Run)</b> untuk memastikan semua sheet siap.
               </li>
-              <li className="leading-relaxed">
-                Klik tombol <b>Terapkan (Deploy)</b> &rarr; <b>Kelola penerapan (Manage deployments)</b> &rarr; ikon <b>Pensil (Edit)</b> &rarr; Versi: <b>"Versi baru" (New version)</b> &rarr; Akses: <b>"Siapa saja" (Anyone)</b> &rarr; <b>Terapkan</b>.
+              <li className="leading-relaxed font-bold text-stone-900">
+                Klik <b>Terapkan (Deploy)</b> &rarr; <b>Kelola penerapan (Manage deployments)</b> &rarr; ikon <b>Pensil (Edit)</b> &rarr; Versi: <b>"Versi baru" (New version)</b> &rarr; <b>Terapkan</b>.
               </li>
             </ol>
 

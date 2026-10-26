@@ -1,31 +1,41 @@
+/**
+ * ==============================================================
+ * DIMSUMANYU - INTEGRASI GOOGLE SHEETS & APPS SCRIPT RESMI
+ * Script ID: 1nx_JWMQKLVEyXO6ZbXdPQcZEtU8xvOBiSkmW9HSwNLKZsiv22oCldOlU
+ * ==============================================================
+ */
+
 export const GOOGLE_APPS_SCRIPT_CODE = `/**
  * ==============================================================
  * DIMSUMANYU - INTEGRASI GOOGLE SHEETS & APPS SCRIPT RESMI
  * Script ID: 1nx_JWMQKLVEyXO6ZbXdPQcZEtU8xvOBiSkmW9HSwNLKZsiv22oCldOlU
  * ==============================================================
  * 
- * FITUR TERBARU:
+ * FITUR TERLENGKAP:
  * 1. PENCATATAN PESANAN OTOMATIS: Sheet "Pesanan"
- * 2. MANAJEMEN USER & PASSWORD ADMIN: Sheet "AdminUsers"
- *    - Setiap baris di sheet 'AdminUsers' dapat digunakan untuk login admin
- *    - Anda bisa menambah kasir, staf dapur, atau admin baru langsung dari spreadsheet!
+ * 2. MANAJEMEN USER & PASSWORD ADMIN: Sheet "admin user" / "AdminUsers" / "Akun Admin"
+ *    - Setiap baris di sheet admin user dapat langsung digunakan untuk login admin
+ *    - Mendukung login dengan Username & Password ATAU PIN Cepat (4-6 digit)
+ *    - Mendukung format angka otomatis dari spreadsheet (misal PIN 290501 / 123456)
+ * 3. BACA DATA MENU: Sheet "Menu" / "DB_DIMSUMANYU"
  * 
- * PANDUAN PEMASANGAN (HANYA 1 MENIT):
- * 1. Buka spreadsheet Google Sheets Anda tempat rekap pesanan
+ * ==============================================================
+ * ⚠️ CARA UPDATE AGAR AKUN SPREADSHEET LANGSUNG AKTIF:
+ * 1. Buka spreadsheet Google Sheets Anda
  * 2. Klik menu 'Ekstensi' (Extensions) -> 'Apps Script'
- * 3. Hapus seluruh isi file 'Code.gs' lama dan TEMPELKAN (PASTE) kode ini
+ * 3. Hapus SEMUA isi Code.gs lama, lalu TEMPELKAN (PASTE) seluruh kode ini
  * 4. Klik ikon 'Simpan' (Disket)
  * 5. SANGAT PENTING (DEPLOYMENT BARU):
- *    - Klik tombol 'Terapkan' (Deploy) di kanan atas
+ *    - Klik tombol biru 'Terapkan' (Deploy) di kanan atas
  *    - Pilih 'Kelola penerapan' (Manage deployments)
- *    - Klik ikon Pensil (Edit) di samping penerapan Web App aktif Anda
- *    - Pada bagian Versi (Version), WAJIB pilih: 'Versi baru' (New version)
- *    - Pastikan 'Akses' (Who has access): 'Siapa saja' (Anyone)
+ *    - Klik ikon Pensil (Edit) pada penerapan Web App Anda
+ *    - Pada opsi 'Versi' (Version): WAJIB PILIH 'Versi baru' (New version)
+ *    - Pada opsi 'Akses' (Who has access): Pastikan 'Siapa saja' (Anyone)
  *    - Klik tombol 'Terapkan' (Deploy)
  * ==============================================================
  */
 
-// KOSONGKAN jika script ini dibuka dari Ekstensi > Apps Script di Google Sheets Anda.
+// KOSONGKAN jika script ini dibuka dari menu Ekstensi > Apps Script di Google Sheets Anda.
 // Atau ISI dengan ID Spreadsheet jika Anda menggunakan skrip mandiri (standalone).
 var SPREADSHEET_ID = "";
 
@@ -43,62 +53,81 @@ function getTargetSpreadsheet() {
 }
 
 /**
- * =============================================================
- * ⚡ FUNGSI UTAMA: JALANKAN INI UNTUK BUAT SHEET OTOMATIS!
- * =============================================================
- * Cara Pakai:
- * 1. Di bilah menu atas Google Apps Script, pilih fungsi "setupSheets"
- * 2. Klik tombol "▷ Jalankan" (Run)
- * 3. Buka tab Google Sheets Anda, sheet "AdminUsers" & "Pesanan"
- *    akan langsung muncul otomatis beserta header & akun admin!
+ * Mencari sheet Admin Users secara fleksibel:
+ * Mengenali tab: "admin user", "admin users", "Admin User", "AdminUsers", "Akun Admin", "Admin", "Users", dll.
  */
-function setupSheets() {
-  var ss = getTargetSpreadsheet();
-  var adminSheet = getOrCreateAdminUsersSheet(ss);
-  var pesananSheet = getOrCreatePesananSheet(ss);
+function findAdminUsersSheet(ss) {
+  var sheets = ss.getSheets();
   
-  var info = "✅ BERHASIL: Sheet 'AdminUsers' (Akun Admin) dan Sheet 'Pesanan' telah siap di Google Sheets Anda!";
-  Logger.log(info);
-  return info;
+  // 1. Cek nama exact & variasi umum
+  for (var i = 0; i < sheets.length; i++) {
+    var rawName = sheets[i].getName().trim();
+    var nameLower = rawName.toLowerCase();
+    
+    // Jangan pilih sheet pesanan atau menu
+    if (nameLower.indexOf("pesanan") !== -1 || nameLower.indexOf("order") !== -1 || nameLower.indexOf("menu") !== -1) {
+      continue;
+    }
+    
+    if (
+      nameLower === "admin user" ||
+      nameLower === "admin users" ||
+      nameLower === "adminuser" ||
+      nameLower === "adminusers" ||
+      nameLower === "akun admin" ||
+      nameLower === "user admin" ||
+      nameLower === "admin" ||
+      nameLower === "users" ||
+      nameLower === "user" ||
+      nameLower === "pengelola" ||
+      nameLower.indexOf("admin") !== -1 ||
+      nameLower.indexOf("user") !== -1
+    ) {
+      return sheets[i];
+    }
+  }
+  
+  return null;
 }
 
-// -------------------------------------------------------------
-// 1. MANAJEMEN PENGGUNA & PASSWORD ADMIN (SHEET: AdminUsers)
-// -------------------------------------------------------------
+/**
+ * Mengambil atau membuat sheet Admin Users jika belum ada sama sekali
+ */
 function getOrCreateAdminUsersSheet(ss) {
-  var sheet = ss.getSheetByName("AdminUsers") || ss.getSheetByName("Users") || ss.getSheetByName("Admin");
+  var existing = findAdminUsersSheet(ss);
+  if (existing) return existing;
   
-  if (!sheet) {
-    sheet = ss.insertSheet("AdminUsers");
-    var headers = [
-      "Username",
-      "Password",
-      "Nama / Peran",
-      "Status",
-      "Terakhir Login"
-    ];
-    sheet.appendRow(headers);
-    
-    // Format Header Baris 1
-    var headerRange = sheet.getRange(1, 1, 1, headers.length);
-    headerRange.setBackground("#1E293B"); // Slate dark
-    headerRange.setFontColor("#FFFFFF");
-    headerRange.setFontWeight("bold");
-    headerRange.setHorizontalAlignment("center");
-    headerRange.setVerticalAlignment("middle");
-    sheet.setRowHeight(1, 32);
+  var sheet = ss.insertSheet("admin user");
+  var headers = [
+    "Username",
+    "Password",
+    "PIN",
+    "Nama / Peran",
+    "Status",
+    "Terakhir Login"
+  ];
+  sheet.appendRow(headers);
+  
+  // Format Header Baris 1
+  var headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setBackground("#1E293B"); // Slate dark
+  headerRange.setFontColor("#FFFFFF");
+  headerRange.setFontWeight("bold");
+  headerRange.setHorizontalAlignment("center");
+  headerRange.setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 32);
 
-    // Tambahkan pengguna default awal (Bisa diedit/ditambah langsung di Google Sheets)
-    sheet.appendRow(["admin", "dimsumanyu123", "Owner / Admin Utama", "Aktif", "-"]);
-    sheet.appendRow(["kasir", "dimsum123", "Kasir Toko", "Aktif", "-"]);
-    sheet.appendRow(["dapur", "dapur123", "Staf Dapur", "Aktif", "-"]);
-  }
+  // Akun Awal Default
+  sheet.appendRow(["admin", "dimsumanyu123", "123456", "Owner / Admin Utama", "Aktif", "-"]);
+  sheet.appendRow(["kasir", "dimsum123", "290501", "Kasir Toko", "Aktif", "-"]);
+  sheet.appendRow(["dapur", "dapur123", "112233", "Staf Dapur", "Aktif", "-"]);
+  
   return sheet;
 }
 
-// -------------------------------------------------------------
-// 2. STRUKTUR SHEET PESANAN (SHEET: Pesanan)
-// -------------------------------------------------------------
+/**
+ * Mengambil atau membuat sheet Pesanan jika belum ada
+ */
 function getOrCreatePesananSheet(ss) {
   var sheet = ss.getSheetByName("Pesanan") || ss.getSheetByName("Orders");
   
@@ -119,7 +148,6 @@ function getOrCreatePesananSheet(ss) {
     ];
     sheet.appendRow(headers);
     
-    // Format Header Baris 1
     var headerRange = sheet.getRange(1, 1, 1, headers.length);
     headerRange.setBackground("#B80C1D"); // Merah DIMSUMANYU
     headerRange.setFontColor("#FFFFFF");
@@ -131,65 +159,183 @@ function getOrCreatePesananSheet(ss) {
   return sheet;
 }
 
-function checkAdminLogin(username, password) {
-  if (!username || !password) {
-    return { success: false, error: "Username dan password wajib diisi." };
-  }
-  
+/**
+ * Jalankan fungsi ini dari Apps Script untuk membuat sheet 'admin user' dan 'Pesanan' otomatis!
+ */
+function setupSheets() {
   var ss = getTargetSpreadsheet();
-  var sheet = getOrCreateAdminUsersSheet(ss);
-  var data = sheet.getDataRange().getValues();
+  var adminSheet = getOrCreateAdminUsersSheet(ss);
+  var pesananSheet = getOrCreatePesananSheet(ss);
   
-  if (data.length <= 1) {
-    return { success: false, error: "Daftar pengguna kosong di sheet AdminUsers." };
+  var info = "✅ BERHASIL: Sheet '" + adminSheet.getName() + "' dan Sheet 'Pesanan' telah siap di Google Sheets Anda!";
+  Logger.log(info);
+  return info;
+}
+
+/**
+ * Verifikasi login fleksibel (Username + Password ATAU PIN) dari spreadsheet
+ */
+function checkAdminLogin(username, password, pin) {
+  var ss = getTargetSpreadsheet();
+  var sheet = findAdminUsersSheet(ss);
+  
+  if (!sheet) {
+    sheet = getOrCreateAdminUsersSheet(ss);
   }
   
-  var cleanUser = String(username).trim().toLowerCase();
-  var cleanPass = String(password).trim();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return {
+      success: false,
+      error: "Sheet '" + sheet.getName() + "' kosong atau belum ada akun admin yang ditulis."
+    };
+  }
   
+  var cleanUser = username ? String(username).trim().toLowerCase() : '';
+  var cleanPass = password ? String(password).trim() : '';
+  var cleanPin = pin ? String(pin).trim() : '';
+  
+  // Deteksi kolom secara cerdas berdasarkan baris header
+  var headerRow = data[0];
+  var colUser = 0;
+  var colPass = 1;
+  var colPin = -1;
+  var colRole = 2;
+  var colStatus = 3;
+  var colLastLogin = 4;
+  
+  for (var h = 0; h < headerRow.length; h++) {
+    var hName = String(headerRow[h] || '').trim().toLowerCase();
+    if (hName.indexOf('user') !== -1 || hName.indexOf('nama akun') !== -1) colUser = h;
+    else if (hName.indexOf('pass') !== -1 || hName.indexOf('sandi') !== -1 || hName.indexOf('kata sandi') !== -1) colPass = h;
+    else if (hName.indexOf('pin') !== -1) colPin = h;
+    else if (hName.indexOf('role') !== -1 || hName.indexOf('peran') !== -1 || hName.indexOf('jabatan') !== -1) colRole = h;
+    else if (hName.indexOf('status') !== -1) colStatus = h;
+    else if (hName.indexOf('login') !== -1 || hName.indexOf('waktu') !== -1) colLastLogin = h;
+  }
+  
+  // Jika kolom PIN belum ada, cek apakah password bisa dipakai sebagai PIN
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var rowUser = String(row[0] || '').trim().toLowerCase();
-    var rowPass = String(row[1] || '').trim();
-    var role = String(row[2] || 'Admin').trim();
-    var status = String(row[3] || 'Aktif').trim().toLowerCase();
+    var rowUser = String(row[colUser] !== undefined ? row[colUser] : '').trim();
+    var rowPass = String(row[colPass] !== undefined ? row[colPass] : '').trim();
+    var rowPin = colPin !== -1 && row[colPin] !== undefined ? String(row[colPin]).trim() : '';
+    var role = colRole !== -1 && row[colRole] ? String(row[colRole]).trim() : 'Admin';
+    var status = colStatus !== -1 && row[colStatus] ? String(row[colStatus]).trim().toLowerCase() : 'aktif';
     
-    if (rowUser === cleanUser) {
-      if (status === 'nonaktif' || status === 'disabled' || status === 'blokir' || status === 'tidak aktif') {
-        return { success: false, error: "Akun '" + username + "' berstatus Nonaktif di spreadsheet." };
-      }
-      
-      if (rowPass === cleanPass) {
-        // Catat waktu login ke kolom 5 (Terakhir Login)
-        try {
-          var nowStr = Utilities.formatDate(new Date(), "Asia/Makassar", "yyyy-MM-dd HH:mm:ss");
-          sheet.getRange(i + 1, 5).setValue(nowStr);
-        } catch (e) {}
+    // Baris kosong dilewati
+    if (!rowUser && !rowPass && !rowPin) continue;
+    
+    // A. Login via PIN Cepat
+    if (cleanPin) {
+      var isPinMatch = (rowPin && rowPin === cleanPin) || (rowPass && rowPass === cleanPin);
+      if (isPinMatch) {
+        if (status === 'nonaktif' || status === 'disabled' || status === 'blokir' || status === 'tidak aktif') {
+          return { success: false, error: "Akun ini berstatus Nonaktif di spreadsheet." };
+        }
+        
+        // Catat waktu login jika kolom ada
+        if (colLastLogin !== -1) {
+          try {
+            var nowStr = Utilities.formatDate(new Date(), "Asia/Makassar", "yyyy-MM-dd HH:mm:ss");
+            sheet.getRange(i + 1, colLastLogin + 1).setValue(nowStr);
+          } catch (e) {}
+        }
         
         return {
           success: true,
-          message: "Login berhasil! Selamat datang, " + role + ".",
-          user: {
-            username: String(row[0]),
-            role: role
-          }
+          message: "Login PIN berhasil! Selamat datang, " + (rowUser || role) + ".",
+          user: { username: rowUser || 'Admin', role: role }
         };
-      } else {
-        return { success: false, error: "Password salah untuk username '" + username + "'." };
+      }
+    }
+    
+    // B. Login via Username & Password
+    if (cleanUser && cleanPass) {
+      if (rowUser.toLowerCase() === cleanUser) {
+        if (status === 'nonaktif' || status === 'disabled' || status === 'blokir' || status === 'tidak aktif') {
+          return { success: false, error: "Akun '" + username + "' berstatus Nonaktif di spreadsheet." };
+        }
+        
+        var isPassMatch = (rowPass === cleanPass) || (rowPin && rowPin === cleanPass);
+        if (isPassMatch) {
+          if (colLastLogin !== -1) {
+            try {
+              var nowStr2 = Utilities.formatDate(new Date(), "Asia/Makassar", "yyyy-MM-dd HH:mm:ss");
+              sheet.getRange(i + 1, colLastLogin + 1).setValue(nowStr2);
+            } catch (e) {}
+          }
+          
+          return {
+            success: true,
+            message: "Login berhasil! Selamat datang, " + (rowUser || role) + ".",
+            user: { username: rowUser, role: role }
+          };
+        } else {
+          return { success: false, error: "Password salah untuk username '" + username + "'." };
+        }
       }
     }
   }
   
-  return { success: false, error: "Username '" + username + "' tidak terdaftar di sheet AdminUsers Google Sheets." };
+  if (cleanPin) {
+    return { success: false, error: "PIN cepat '" + cleanPin + "' tidak cocok dengan akun manapun di sheet '" + sheet.getName() + "'." };
+  }
+  
+  return { success: false, error: "Username '" + username + "' tidak ditemukan di sheet '" + sheet.getName() + "' spreadsheet." };
 }
 
 // -------------------------------------------------------------
-// 3. ENDPOINT GET (Web App)
+// ENDPOINT GET (Web App)
 // -------------------------------------------------------------
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) || '';
   
-  // A. Inisialisasi Sheet Otomatis via GET (?action=setup atau ?action=init)
+  // 1. Verifikasi Login Admin & PIN
+  if (action === 'login' || action === 'checkLogin') {
+    var u = (e && e.parameter && e.parameter.username) || '';
+    var p = (e && e.parameter && e.parameter.password) || '';
+    var pin = (e && e.parameter && e.parameter.pin) || '';
+    var loginResult = checkAdminLogin(u, p, pin);
+    return ContentService.createTextOutput(JSON.stringify(loginResult))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // 2. Status Cek Sheet Admin Users
+  if (action === 'checkAdminUsers' || action === 'testAdminUsers' || action === 'test_sheet') {
+    try {
+      var ssCheck = getTargetSpreadsheet();
+      var adminSheetCheck = findAdminUsersSheet(ssCheck);
+      if (!adminSheetCheck) {
+        adminSheetCheck = getOrCreateAdminUsersSheet(ssCheck);
+      }
+      var rowsCheck = adminSheetCheck.getDataRange().getValues();
+      var userCount = Math.max(0, rowsCheck.length - 1);
+      
+      var registeredUsers = [];
+      for (var r = 1; r < rowsCheck.length; r++) {
+        if (rowsCheck[r][0]) {
+          registeredUsers.push(String(rowsCheck[r][0]).trim());
+        }
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        sheetExists: true,
+        sheetName: adminSheetCheck.getName(),
+        userCount: userCount,
+        users: registeredUsers,
+        message: "Sheet '" + adminSheetCheck.getName() + "' aktif terhubung dengan " + userCount + " akun pengguna."
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch (errCheck) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: "Gagal membaca sheet admin user: " + errCheck.toString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // 3. Inisialisasi Sheet Otomatis
   if (action === 'setup' || action === 'init' || action === 'createSheets') {
     var initMsg = setupSheets();
     return ContentService.createTextOutput(JSON.stringify({
@@ -198,40 +344,7 @@ function doGet(e) {
     })).setMimeType(ContentService.MimeType.JSON);
   }
 
-  // B. Cek Status Sheet AdminUsers & Koneksi Spreadsheet
-  if (action === 'checkAdminUsers' || action === 'testAdminUsers' || action === 'test_sheet') {
-    try {
-      var ssCheck = getTargetSpreadsheet();
-      var adminSheetCheck = ssCheck.getSheetByName("AdminUsers") || ssCheck.getSheetByName("Users") || ssCheck.getSheetByName("Admin");
-      if (!adminSheetCheck) {
-        adminSheetCheck = getOrCreateAdminUsersSheet(ssCheck);
-      }
-      var rowsCheck = adminSheetCheck.getDataRange().getValues();
-      var userCountCheck = Math.max(0, rowsCheck.length - 1);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        sheetExists: true,
-        userCount: userCountCheck,
-        message: "Sheet 'AdminUsers' aktif terhubung di Google Sheets dengan " + userCountCheck + " akun pengguna."
-      })).setMimeType(ContentService.MimeType.JSON);
-    } catch (errCheck) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        error: "Gagal membaca sheet AdminUsers: " + errCheck.toString()
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-
-  // C. Verifikasi Login Admin via GET
-  if (action === 'login' || action === 'checkLogin') {
-    var u = (e && e.parameter && e.parameter.username) || '';
-    var p = (e && e.parameter && e.parameter.password) || '';
-    var loginResult = checkAdminLogin(u, p);
-    return ContentService.createTextOutput(JSON.stringify(loginResult))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  // C. Simpan Pesanan via GET (Fallback URL params)
+  // 4. Pencatatan Pesanan via GET
   if (action === 'order' || (e && e.parameter && e.parameter.payload)) {
     try {
       var rawPayload = e.parameter.payload || e.parameter.data;
@@ -251,41 +364,25 @@ function doGet(e) {
     }
   }
 
-  // D. Ambil data menu dari sheet Menu
+  // 5. Ambil data menu
   if (action === 'getMenuData') {
     var menuData = getMenuData();
     return ContentService.createTextOutput(JSON.stringify(menuData))
       .setMimeType(ContentService.MimeType.JSON);
   }
   
-  // E. Status JSON ping jika diminta
-  if (action === 'status') {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "ok",
-      app: "DIMSUMANYU",
-      message: "Google Apps Script aktif & terhubung dengan sheet Pesanan & AdminUsers!",
-      timestamp: new Date().toISOString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  // F. Tampilkan HTML jika diakses langsung di browser
-  try {
-    return HtmlService.createHtmlOutputFromFile('Index')
-      .setTitle('DIMSUMANYU - #SensasiNgedaging')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "ok",
-      app: "DIMSUMANYU",
-      message: "Google Apps Script aktif & siap mencatat pesanan ke Google Sheets!",
-      timestamp: new Date().toISOString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
+  // 6. Status ping
+  return ContentService.createTextOutput(JSON.stringify({
+    status: "ok",
+    app: "DIMSUMANYU",
+    version: "2.1",
+    message: "Google Apps Script aktif & terhubung dengan sheet Pesanan & Admin User!",
+    timestamp: new Date().toISOString()
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // -------------------------------------------------------------
-// 4. ENDPOINT POST (Pencatatan Pesanan, Setup & Login)
+// ENDPOINT POST (Pencatatan Pesanan, Setup & Login)
 // -------------------------------------------------------------
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -305,7 +402,7 @@ function doPost(e) {
     
     var data = typeof contents === 'string' ? JSON.parse(contents) : contents;
     
-    // Inisialisasi sheet via POST
+    // Inisialisasi sheet
     if (data.action === 'setup' || data.action === 'init') {
       var initMsgPost = setupSheets();
       return ContentService.createTextOutput(JSON.stringify({
@@ -314,14 +411,14 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Jika aksi adalah login admin
+    // Login admin
     if (data.action === 'login' || data.action === 'checkLogin') {
-      var loginRes = checkAdminLogin(data.username, data.password);
+      var loginRes = checkAdminLogin(data.username, data.password, data.pin);
       return ContentService.createTextOutput(JSON.stringify(loginRes))
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // Default aksi: simpan pesanan ke sheet 'Pesanan'
+    // Default aksi: simpan pesanan
     var saveResult = simpanPesanan(data);
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -340,12 +437,11 @@ function doPost(e) {
 }
 
 // -------------------------------------------------------------
-// 5. PENYIMPANAN PESANAN KE SHEET 'Pesanan'
+// PENYIMPANAN PESANAN KE SHEET 'Pesanan'
 // -------------------------------------------------------------
 function simpanPesanan(orderData) {
   var ss = getTargetSpreadsheet();
   
-  // Pastikan sheet AdminUsers dan Pesanan sudah ada
   getOrCreateAdminUsersSheet(ss);
   var sheet = getOrCreatePesananSheet(ss);
 
@@ -357,7 +453,7 @@ function simpanPesanan(orderData) {
     timestampStr,
     orderId,
     orderData.nama || "-",
-    "'" + (orderData.phone || "-"), // Beri tanda petik agar digit 0 / 62 tidak terpotong
+    "'" + (orderData.phone || "-"),
     orderData.opsiPengiriman || "Diantar ke Alamat",
     orderData.alamat || "-",
     orderData.metodeBayar || "QRIS",

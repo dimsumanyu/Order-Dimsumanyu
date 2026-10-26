@@ -170,21 +170,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         const data = await res.json().catch(() => null);
 
         if (data && data.success) {
+          const foundSheet = data.sheetName || 'admin user';
           setSheetTestResult({
             success: true,
-            message: `✅ SINKRONISASI BERHASIL! Sheet 'AdminUsers' di spreadsheet Anda aktif & merespons dengan lancar.`
+            message: `✅ SINKRONISASI BERHASIL! Sheet '${foundSheet}' di spreadsheet Anda aktif & terhubung (${data.userCount !== undefined ? data.userCount : 1} akun).`
+          });
+        } else if (data && data.status === 'ok') {
+          setSheetTestResult({
+            success: false,
+            message: '⚠️ Apps Script masih menjalankan deployment versi lama. Silakan buka Apps Script, klik "Terapkan (Deploy) > Kelola Penerapan > Edit (Pensil) > Versi: VERSI BARU > Terapkan" agar sheet "admin user" Anda terbaca.'
           });
         } else {
           setSheetTestResult({
             success: true,
-            message: `✅ KONEKSI BERHASIL (HTTP ${res.status})! Webhook Google Apps Script aktif & spreadsheet terhubung.`
+            message: `✅ KONEKSI BERHASIL (HTTP ${res.status})! Webhook Google Apps Script aktif.`
           });
         }
       }
     } catch {
       setSheetTestResult({
         success: false,
-        message: 'Koneksi ke Apps Script gagal. Pastikan deployment disetel ke "Siapa Saja (Anyone)" dan kode Code.gs sudah diperbarui.'
+        message: 'Koneksi ke Apps Script gagal. Pastikan deployment disetel ke "Siapa Saja (Anyone)" dan kode Code.gs sudah diperbarui ke Versi Baru.'
       });
     } finally {
       setIsTestingSheet(false);
@@ -836,24 +842,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 )}
 
-                {/* Petunjuk Daftar Akun Spreadsheet (Dipindahkan dari Navbar) */}
-                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl text-[11px] text-amber-900 space-y-1 mt-2">
+                {/* Petunjuk Daftar Akun Spreadsheet */}
+                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl text-[11px] text-amber-900 space-y-1.5 mt-2">
                   <p className="font-extrabold text-[11px] flex items-center gap-1.5 text-amber-950">
                     <FileSpreadsheet className="w-4 h-4 text-amber-700" />
-                    <span>Daftar User &amp; Password di Google Spreadsheet (Sheet 'AdminUsers')</span>
+                    <span>Daftar Akun di Google Spreadsheet (Sheet 'admin user' / 'AdminUsers')</span>
                   </p>
                   <p className="text-[11px] leading-relaxed text-amber-800">
-                    Username dan password staf (Kasir, Dapur, Admin) dapat ditambah atau diatur langsung pada tab sheet <b>AdminUsers</b> di Google Sheets Anda. Setiap baris akun dengan status <i>Aktif</i> dapat langsung digunakan untuk login di aplikasi.
+                    Sistem fleksibel mengenali berbagai nama tab sheet: <b>admin user</b>, <b>Admin User</b>, <b>admin users</b>, <b>AdminUsers</b>, atau <b>Akun Admin</b>. Setiap baris akun dengan status <i>Aktif</i> dapat langsung digunakan untuk login di aplikasi menggunakan Username &amp; Password atau PIN Cepat.
                   </p>
                 </div>
               </div>
 
               <div>
                 <h4 className="font-extrabold text-stone-900 text-xs mb-1">
-                  🔒 Cadangan Kredensial Lokal (Master Admin)
+                  🔒 Kredensial Toko &amp; PIN Pengelola
                 </h4>
                 <p className="text-[11px] text-stone-500 mb-3">
-                  Digunakan sebagai cadangan darurat jika Google Sheets sedang lambat atau offline.
+                  Kredensial langsung untuk login cepat ke panel admin (dapat digunakan kapan saja):
                 </p>
               </div>
               
@@ -886,14 +892,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                    PIN Cepat 6-Digit
+                    PIN Cepat Pengelola
                   </label>
                   <input
                     type="text"
-                    maxLength={6}
+                    maxLength={10}
                     value={adminPin}
                     onChange={(e) => setAdminPin(e.target.value)}
-                    placeholder="123456"
+                    placeholder="290501"
                     className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 focus:border-red-600 outline-none text-xs font-mono tracking-widest text-center"
                   />
                 </div>
