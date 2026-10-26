@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, MessageCircle, ArrowRight, X, Clock } from 'lucide-react';
+import { CheckCircle2, MessageCircle, X } from 'lucide-react';
 import { OrderData, AppSettings } from '../types';
 import { formatRupiah, generateWhatsAppMessage, createWhatsAppUrl } from '../utils/whatsapp';
 
@@ -7,16 +7,14 @@ interface OrderSuccessModalProps {
   order: OrderData;
   settings: AppSettings;
   onClose: () => void;
-  onNewOrder: () => void;
-  onViewStatus: () => void;
+  onNewOrder?: () => void;
+  onViewStatus?: () => void;
 }
 
 export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   order,
   settings,
   onClose,
-  onNewOrder,
-  onViewStatus,
 }) => {
   const waMessage = generateWhatsAppMessage(order);
   const waUrl = createWhatsAppUrl(settings.adminWaNumber, waMessage);
@@ -71,31 +69,18 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
           </div>
         </div>
 
-        {/* WhatsApp & Navigation Buttons */}
-        <div className="mt-5 space-y-2.5">
+        {/* WhatsApp Button Only */}
+        <div className="mt-5 space-y-2">
           <button
             onClick={handleOpenWhatsApp}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black py-3.5 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
           >
             <MessageCircle className="w-4 h-4" />
             <span>Kirim Pesanan ke WhatsApp Admin</span>
           </button>
-
-          <button
-            onClick={onViewStatus}
-            className="w-full bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 font-bold py-2.5 px-4 rounded-xl transition text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Clock className="w-4 h-4 text-orange-600" />
-            <span>Lacak Status Pesanan Ini</span>
-          </button>
-
-          <button
-            onClick={onNewOrder}
-            className="w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-2.5 px-4 rounded-xl transition text-xs flex items-center justify-center gap-1 cursor-pointer"
-          >
-            <span>Pesan Menu Lain</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <p className="text-center text-[11px] font-normal text-stone-400">
+            (Wajib kirim pesanan ke WhatsApp Admin)
+          </p>
         </div>
       </div>
     </div>

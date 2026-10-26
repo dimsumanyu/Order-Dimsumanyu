@@ -504,13 +504,13 @@ export default function App() {
         await fetch(`/api/orders/${id}`, { method: 'DELETE' });
       } catch {}
     } catch (err: any) {
-      alert('Gagal menghapus pesanan: ' + err.message);
+      console.error('Gagal menghapus pesanan:', err);
     }
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-20 text-stone-800 flex flex-col justify-between">
-      <div>
+    <div className="min-h-screen bg-stone-50 pb-20 text-stone-800 flex flex-col justify-between w-full max-w-full overflow-x-hidden">
+      <div className="w-full max-w-full">
         {/* Top Navbar */}
         <Navbar
           currentStep={currentStep}
@@ -524,7 +524,7 @@ export default function App() {
           onOpenTrackOrder={() => setShowTrackSearchModal(true)}
         />
 
-        <main className="max-w-4xl mx-auto px-4 py-5 space-y-5">
+        <main className="max-w-4xl mx-auto px-3 sm:px-4 py-3.5 sm:py-5 space-y-4 sm:space-y-5 w-full max-w-full">
           {activeView === 'order' || !isAdminLoggedIn ? (
             <>
               {currentStep === 1 ? (
@@ -595,6 +595,8 @@ export default function App() {
               onUpdateSettings={handleUpdateSettings}
               onDeleteOrder={handleDeleteOrder}
               onOpenSheetsGuide={() => setShowSheetsGuide(true)}
+              onLogout={handleAdminLogout}
+              onViewStore={() => setActiveView('order')}
               isSyncing={isSyncing}
             />
           )}
@@ -633,13 +635,13 @@ export default function App() {
 
       {/* Sticky Bottom Bar for Mobile Shopping (Only in Step 1) */}
       {activeView === 'order' && currentStep === 1 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 z-30 px-4 py-3 shadow-2xl">
-          <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 z-30 px-3 sm:px-4 py-2.5 sm:py-3 shadow-2xl w-full max-w-full">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
             <div>
               <p className="text-[10px] text-stone-400 uppercase font-bold tracking-wider">
                 Total ({cartItemCount} Porsi):
               </p>
-              <p className="font-black text-red-600 text-base sm:text-lg leading-tight">
+              <p className="font-black text-red-600 text-sm sm:text-lg leading-tight">
                 {formatRupiah(totalCartAmount)}
               </p>
             </div>
@@ -647,7 +649,7 @@ export default function App() {
             <button
               onClick={handleProceedToStep2}
               disabled={cartItemCount === 0}
-              className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase flex items-center gap-2 transition ${
+              className={`px-4 sm:px-6 py-2.5 rounded-xl font-black text-xs uppercase flex items-center gap-1.5 sm:gap-2 transition shrink-0 ${
                 cartItemCount > 0
                   ? 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-700/30 cursor-pointer active:scale-95'
                   : 'bg-stone-200 text-stone-400 cursor-not-allowed'
@@ -711,6 +713,7 @@ export default function App() {
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onLoginSuccess={handleAdminLoginSuccess}
+        settings={settings}
       />
 
       {/* Google Sheets Integration Guide Modal */}

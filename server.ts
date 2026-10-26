@@ -291,21 +291,52 @@ async function startServer() {
     res.json({ success: true, orders });
   });
 
-  app.post('/api/admin/login', (req, res) => {
+  app.post('/api/admin/login', async (req, res) => {
     const { username, password, pin } = req.body;
     const currentUsername = settings.adminUsername || 'admin';
     const currentPassword = settings.adminPassword || 'dimsumanyu123';
     const currentPin = settings.adminPin || '123456';
 
+    // 1. If username and password provided and appsScriptUrl configured, check with Google Sheets AdminUsers sheet
+    if (username && password && settings.appsScriptUrl && settings.appsScriptUrl.includes('script.google.com')) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const url = `${settings.appsScriptUrl}?action=login&username=${encodeURIComponent(String(username).trim())}&password=${encodeURIComponent(String(password).trim())}`;
+        const scriptRes = await fetch(url, {
+          method: 'GET',
+          signal: controller.signal,
+          redirect: 'follow'
+        });
+        clearTimeout(timeout);
+        const scriptData: any = await scriptRes.json();
+        if (scriptData && scriptData.success) {
+          return res.json({
+            success: true,
+            user: scriptData.user,
+            message: scriptData.message || 'Login admin berhasil via Google Sheets!'
+          });
+        } else if (scriptData && scriptData.error && !(username === currentUsername && password === currentPassword)) {
+          return res.status(401).json({
+            success: false,
+            error: scriptData.error
+          });
+        }
+      } catch (sheetErr) {
+        console.warn('Apps Script login check error, falling back to local credentials:', sheetErr);
+      }
+    }
+
+    // 2. Local fallback credentials
     const isValid = 
       (username === currentUsername && password === currentPassword) ||
       (pin && pin === currentPin) ||
       (password === currentPassword);
 
     if (isValid) {
-      res.json({ success: true, message: 'Login admin berhasil' });
+      res.json({ success: true, message: 'Login admin berhasil (kredensial lokal)' });
     } else {
-      res.status(401).json({ success: false, error: 'Username, password, atau PIN salah' });
+      res.status(401).json({ success: false, error: 'Username, password, atau PIN salah.' });
     }
   });
 
@@ -343,6 +374,132 @@ async function startServer() {
       res.status(500).json({
         success: false,
         error: err.message || 'Koneksi ke Apps Script gagal'
+      });
+    }
+  });
+
+  app.post('/api/admin/test-spreadsheet-users', async (req, res) => {
+    const targetUrl = req.body.url || settings.appsScriptUrl;
+    const testUsername = (req.body.username || settings.adminUsername || 'admin').trim();
+    const testPassword = (req.body.password || settings.adminPassword || '').trim();
+
+    if (!targetUrl || !targetUrl.includes('script.google.com')) {
+      return res.status(400).json({
+        success: false,
+        error: 'URL Google Apps Script belum diisi atau tidak valid.'
+      });
+    }
+
+    try {
+      // 1. Try checking admin users sheet directly
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const checkUrl = `${targetUrl}?action=checkAdminUsers`;
+      const response = await fetch(checkUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        redirect: 'follow'
+      });
+      clearTimeout(timeout);
+
+      const text = await response.text();
+      let json: any = null;
+      try { json = JSON.parse(text); } catch {}
+
+      if (json && json.success) {
+        return res.json({
+          success: true,
+          message: `✅ SINKRONISASI BERHASIL! Sheet 'AdminUsers' di Google Sheets Anda aktif terhubung (${json.userCount !== undefined ? json.userCount : 1} akun terdaftar). Siap digunakan untuk login.`
+        });
+      }
+
+      // 2. If it's an older script deployment, test login with provided credentials
+      if (testPassword) {
+        try {
+          const loginCtrl = new AbortController();
+          const loginTimeout = setTimeout(() => loginCtrl.abort(), 8000);
+          const loginUrl = `${targetUrl}?action=login&username=${encodeURIComponent(testUsername)}&password=${encodeURIComponent(testPassword)}`;
+          const loginRes = await fetch(loginUrl, {
+            method: 'GET',
+            signal: loginCtrl.signal,
+            redirect: 'follow'
+          });
+          clearTimeout(loginTimeout);
+          const loginJson: any = await loginRes.json().catch(() => null);
+
+          if (loginJson && loginJson.success) {
+            return res.json({
+              success: true,
+              message: `✅ SINKRONISASI BERHASIL! Akun '${testUsername}' (${loginJson.user?.role || 'Admin'}) terverifikasi aktif di spreadsheet.`
+            });
+          }
+        } catch {}
+      }
+
+      // 3. Fallback: If Google Apps Script returned HTTP 200 (even text/HTML or status)
+      if (response.status === 200) {
+        return res.json({
+          success: true,
+          message: `✅ KONEKSI GOOGLE SPREADSHEET BERHASIL (HTTP 200)! Webhook Apps Script aktif terhubung. Pastikan sheet 'AdminUsers' telah dibuat dan akun Anda tertulis di baris sheet tersebut.`
+        });
+      }
+
+      return res.json({
+        success: false,
+        error: (json && json.error) ? json.error : `Gagal menghubungi Apps Script (Status: ${response.status})`
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: `Koneksi ke Apps Script gagal: ${err.message || 'Timeout'}. Pastikan URL benar dan Akses deployment adalah 'Siapa saja (Anyone)'.`
+      });
+    }
+  });
+
+  app.post('/api/init-sheets', async (req, res) => {
+    const targetUrl = req.body.url || settings.appsScriptUrl;
+    if (!targetUrl || !targetUrl.includes('script.google.com')) {
+      return res.status(400).json({ success: false, error: 'URL Google Apps Script belum diisi.' });
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const url = `${targetUrl}?action=setup`;
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+        redirect: 'follow'
+      });
+      clearTimeout(timeout);
+
+      const text = await response.text();
+      let json: any = null;
+      try { json = JSON.parse(text); } catch {}
+
+      if (json && json.success) {
+        return res.json({
+          success: true,
+          message: json.message || "Sheet 'AdminUsers' dan 'Pesanan' berhasil dibuat otomatis di Google Sheets!"
+        });
+      }
+
+      if (text.includes('Script function not found') || text.includes('<!DOCTYPE')) {
+        return res.json({
+          success: false,
+          needsRedeploy: true,
+          error: 'Apps Script belum dideploy dengan Versi Baru yang memiliki fungsi setupSheets. Silakan salin Code.gs terbaru ke Apps Script, lalu klik tombol "▷ Jalankan" (Run) fungsi setupSheets.'
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Perintah pembuatan sheet telah terkirim ke Apps Script."
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err.message || 'Gagal menghubungi Google Apps Script'
       });
     }
   });

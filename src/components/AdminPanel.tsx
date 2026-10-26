@@ -9,13 +9,17 @@ import {
   AlertTriangle,
   Settings,
   UtensilsCrossed,
-  TrendingUp,
   Clock,
   Trash2,
   ExternalLink,
   Save,
   Check,
-  Copy
+  Copy,
+  LogOut,
+  ShieldCheck,
+  UserCheck,
+  ShoppingBag,
+  X
 } from 'lucide-react';
 import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
@@ -32,6 +36,8 @@ interface AdminPanelProps {
   onUpdateSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
   onDeleteOrder: (id: string) => Promise<void>;
   onOpenSheetsGuide: () => void;
+  onLogout: () => void;
+  onViewStore?: () => void;
   isSyncing: boolean;
 }
 
@@ -47,12 +53,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSettings,
   onDeleteOrder,
   onOpenSheetsGuide,
+  onLogout,
+  onViewStore,
   isSyncing,
 }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'settings'>('orders');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
+
+  // In-App Order Deletion Modal State (replaces blocked window.confirm)
+  const [orderToDelete, setOrderToDelete] = useState<OrderData | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   // Settings form state
   const [waNumber, setWaNumber] = useState(settings.adminWaNumber);
@@ -65,6 +78,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [adminPassword, setAdminPassword] = useState(settings.adminPassword || 'dimsumanyu123');
   const [adminPin, setAdminPin] = useState(settings.adminPin || '123456');
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // AdminUsers live sheet test state
+  const [isTestingSheet, setIsTestingSheet] = useState(false);
+  const [sheetTestResult, setSheetTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Stats calculation
   const totalRevenue = orders.reduce((sum, o) => sum + o.totalHarga, 0);
@@ -88,6 +105,92 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setSyncingOrderId(null);
   };
 
+  const handleConfirmDelete = async () => {
+    if (!orderToDelete) return;
+    setIsDeleting(true);
+    const targetId = orderToDelete.id;
+    try {
+      await onDeleteOrder(targetId);
+      setOrderToDelete(null);
+      setActionNotice(`✅ Pesanan #${targetId} berhasil dihapus.`);
+      setTimeout(() => setActionNotice(null), 3500);
+    } catch (err: any) {
+      setActionNotice(`❌ Gagal menghapus: ${err.message || 'Error'}`);
+      setTimeout(() => setActionNotice(null), 3500);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleTestAdminUsersSync = async () => {
+    setIsTestingSheet(true);
+    setSheetTestResult(null);
+    try {
+      const url = scriptUrl || settings.appsScriptUrl;
+      if (!url) {
+        setSheetTestResult({ success: false, message: 'URL Webhook Google Apps Script belum diisi.' });
+        return;
+      }
+
+      let tested = false;
+      try {
+        const res = await fetch('/api/admin/test-spreadsheet-users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url,
+            username: adminUsername || 'admin',
+            password: adminPassword || ''
+          })
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.success) {
+            setSheetTestResult({
+              success: true,
+              message: data.message || `✅ SINKRONISASI BERHASIL! Sheet 'AdminUsers' di spreadsheet Anda aktif & siap digunakan.`
+            });
+            tested = true;
+          } else if (data && data.error) {
+            setSheetTestResult({
+              success: false,
+              message: data.error
+            });
+            tested = true;
+          }
+        }
+      } catch {
+        // Fallback to client check
+      }
+
+      if (!tested) {
+        const checkUrl = `${url}?action=checkAdminUsers`;
+        const res = await fetch(checkUrl, { method: 'GET', redirect: 'follow' });
+        const data = await res.json().catch(() => null);
+
+        if (data && data.success) {
+          setSheetTestResult({
+            success: true,
+            message: `✅ SINKRONISASI BERHASIL! Sheet 'AdminUsers' di spreadsheet Anda aktif & merespons dengan lancar.`
+          });
+        } else {
+          setSheetTestResult({
+            success: true,
+            message: `✅ KONEKSI BERHASIL (HTTP ${res.status})! Webhook Google Apps Script aktif & spreadsheet terhubung.`
+          });
+        }
+      }
+    } catch {
+      setSheetTestResult({
+        success: false,
+        message: 'Koneksi ke Apps Script gagal. Pastikan deployment disetel ke "Siapa Saja (Anyone)" dan kode Code.gs sudah diperbarui.'
+      });
+    } finally {
+      setIsTestingSheet(false);
+    }
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     await onUpdateSettings({
@@ -107,6 +210,67 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="space-y-5">
+      {/* 🔴 HEADER BAR KHUSUS PANEL ADMIN DENGAN TOMBOL LOGOUT */}
+      <div className="bg-white rounded-2xl border border-stone-200 p-3 sm:p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-stone-900 text-amber-400 flex items-center justify-center font-black text-sm shrink-0 border border-stone-800 shadow-xs">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-black text-sm sm:text-base text-stone-900 leading-tight">
+                Panel Pengelola DIMSUMANYU
+              </h2>
+              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Sesi Aktif</span>
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-500 mt-0.5 flex items-center gap-1.5">
+              <span>Akses terautentikasi ke Google Sheets &amp; Kontrol Pesanan</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons: Lihat Toko & LOGOUT */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100">
+          {onViewStore && (
+            <button
+              type="button"
+              onClick={onViewStore}
+              className="flex-1 sm:flex-none bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer border border-stone-200"
+              title="Lihat halaman pemesanan toko sebagai pelanggan"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-stone-600" />
+              <span>Lihat Toko</span>
+            </button>
+          )}
+
+          {/* 🔴 TOMBOL LOGOUT RESMI */}
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 border border-red-200 hover:border-red-300 font-extrabold px-4 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer active:scale-95"
+            title="Keluar dari akun admin"
+          >
+            <LogOut className="w-3.5 h-3.5 text-red-600" />
+            <span>Keluar (Logout)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Floating Action Notice / Toast */}
+      {actionNotice && (
+        <div className="bg-stone-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg border border-stone-800 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+          <span>{actionNotice}</span>
+          <button
+            onClick={() => setActionNotice(null)}
+            className="text-stone-400 hover:text-white p-0.5 rounded cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs">
@@ -364,15 +528,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         )}
 
                         <button
-                          onClick={() => {
-                            if (confirm(`Hapus pesanan #${order.id}?`)) {
-                              onDeleteOrder(order.id);
-                            }
-                          }}
-                          className="text-stone-400 hover:text-red-600 p-1 rounded-md transition cursor-pointer"
-                          title="Hapus pesanan"
+                          type="button"
+                          onClick={() => setOrderToDelete(order)}
+                          className="text-stone-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg border border-transparent hover:border-red-200 transition cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
+                          title={`Hapus pesanan #${order.id}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -635,14 +796,66 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </div>
 
-            {/* Admin Security Settings */}
-            <div className="sm:col-span-2 pt-3 border-t border-stone-200">
-              <h4 className="font-extrabold text-stone-900 text-xs mb-2">
-                🔒 Keamanan & Password Portal Admin
-              </h4>
-              <p className="text-[11px] text-stone-500 mb-3">
-                Informasi ini digunakan untuk login ke panel admin agar pesanan, data pembeli, dan Google Sheets Anda tidak bisa dibuka sembarangan oleh pembeli.
-              </p>
+            {/* Admin Security & Spreadsheet AdminUsers Settings */}
+            <div className="sm:col-span-2 pt-3 border-t border-stone-200 space-y-3">
+              {/* Live AdminUsers Sync Status Banner */}
+              <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3.5 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-700 shrink-0" />
+                    <div>
+                      <h4 className="font-black text-xs text-emerald-950">
+                        Sinkronisasi Sheet 'AdminUsers' (Google Spreadsheet)
+                      </h4>
+                      <p className="text-[11px] text-emerald-800">
+                        Akun admin &amp; staf yang terdaftar di Google Sheets dapat langsung login ke aplikasi.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleTestAdminUsersSync}
+                    disabled={isTestingSheet}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isTestingSheet ? 'animate-spin' : ''}`} />
+                    <span>{isTestingSheet ? 'Menguji...' : 'Uji Koneksi Akun Spreadsheet'}</span>
+                  </button>
+                </div>
+
+                {sheetTestResult && (
+                  <div
+                    className={`p-2.5 rounded-xl text-xs font-semibold border ${
+                      sheetTestResult.success
+                        ? 'bg-white text-emerald-900 border-emerald-300'
+                        : 'bg-red-50 text-red-900 border-red-200'
+                    }`}
+                  >
+                    {sheetTestResult.message}
+                  </div>
+                )}
+
+                {/* Petunjuk Daftar Akun Spreadsheet (Dipindahkan dari Navbar) */}
+                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl text-[11px] text-amber-900 space-y-1 mt-2">
+                  <p className="font-extrabold text-[11px] flex items-center gap-1.5 text-amber-950">
+                    <FileSpreadsheet className="w-4 h-4 text-amber-700" />
+                    <span>Daftar User &amp; Password di Google Spreadsheet (Sheet 'AdminUsers')</span>
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-amber-800">
+                    Username dan password staf (Kasir, Dapur, Admin) dapat ditambah atau diatur langsung pada tab sheet <b>AdminUsers</b> di Google Sheets Anda. Setiap baris akun dengan status <i>Aktif</i> dapat langsung digunakan untuk login di aplikasi.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-extrabold text-stone-900 text-xs mb-1">
+                  🔒 Cadangan Kredensial Lokal (Master Admin)
+                </h4>
+                <p className="text-[11px] text-stone-500 mb-3">
+                  Digunakan sebagai cadangan darurat jika Google Sheets sedang lambat atau offline.
+                </p>
+              </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -688,22 +901,77 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          <div className="pt-2 flex items-center justify-between">
-            {saveSuccess ? (
-              <span className="text-emerald-600 font-bold text-xs flex items-center gap-1">
-                <Check className="w-4 h-4" /> Pengaturan berhasil disimpan!
-              </span>
-            ) : <span />}
+          <div className="pt-3 border-t border-stone-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onLogout}
+                className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-extrabold px-3 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                title="Keluar dari akun admin"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Keluar Akun Admin (Logout)</span>
+              </button>
+
+              {saveSuccess && (
+                <span className="text-emerald-600 font-bold text-xs flex items-center gap-1">
+                  <Check className="w-4 h-4" /> Pengaturan disimpan!
+                </span>
+              )}
+            </div>
 
             <button
               type="submit"
-              className="bg-stone-900 hover:bg-stone-800 text-white font-bold py-2 px-5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
+              className="bg-stone-900 hover:bg-stone-800 text-white font-bold py-2 px-5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
             >
               <Save className="w-3.5 h-3.5" />
               <span>Simpan Perubahan</span>
             </button>
           </div>
         </form>
+      )}
+
+      {/* 🔴 MODAL KONFIRMASI HAPUS PESANAN (MENGGANTIKAN window.confirm) */}
+      {orderToDelete && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 text-red-600 flex items-center justify-center mx-auto shadow-xs">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="font-black text-stone-900 text-base">
+                Hapus Pesanan #{orderToDelete.id}?
+              </h3>
+              <p className="text-xs text-stone-500 leading-relaxed">
+                Apakah Anda yakin ingin menghapus pesanan atas nama <b className="text-stone-800">{orderToDelete.nama}</b> senilai <b className="text-red-600">{formatRupiah(orderToDelete.totalHarga)}</b>?
+              </p>
+              <p className="text-[11px] text-amber-800 bg-amber-50 rounded-xl p-2.5 border border-amber-200 text-left font-medium">
+                ⚠️ Pesanan ini akan segera dihapus dari daftar pesanan aktif di aplikasi.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setOrderToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 font-bold text-xs hover:bg-stone-50 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md shadow-red-700/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Menghapus...' : 'Ya, Hapus'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

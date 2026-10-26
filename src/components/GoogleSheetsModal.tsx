@@ -10,7 +10,9 @@ import {
   AlertCircle,
   HelpCircle,
   Terminal,
-  Download
+  Download,
+  Zap,
+  Play
 } from 'lucide-react';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../data/googleAppsScriptTemplate';
 import { AppSettings } from '../types';
@@ -35,6 +37,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [testStatus, setTestStatus] = useState<{ loading: boolean; success?: boolean; message?: string } | null>(null);
+  const [initStatus, setInitStatus] = useState<{ loading: boolean; success?: boolean; message?: string } | null>(null);
   const [editableUrl, setEditableUrl] = useState(settings.appsScriptUrl);
 
   if (!isOpen) return null;
@@ -78,6 +81,37 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
         loading: false,
         success: false,
         message: err.message || 'Gagal menghubungi Apps Script'
+      });
+    }
+  };
+
+  const handleInitSheets = async () => {
+    setInitStatus({ loading: true });
+    try {
+      const res = await fetch('/api/init-sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: editableUrl })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setInitStatus({
+          loading: false,
+          success: true,
+          message: data.message || 'Sheet AdminUsers & Pesanan berhasil disiapkan di Google Sheets!'
+        });
+      } else {
+        setInitStatus({
+          loading: false,
+          success: false,
+          message: data.error || 'Gagal inisialisasi sheet otomatis.'
+        });
+      }
+    } catch (err: any) {
+      setInitStatus({
+        loading: false,
+        success: false,
+        message: err.message || 'Gagal inisialisasi sheet'
       });
     }
   };
@@ -166,15 +200,24 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
               </div>
             </div>
 
-            {/* Test Connection Button */}
-            <div className="flex items-center gap-2 pt-1">
+            {/* Test Connection and Init Buttons */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 onClick={handleTestConnection}
                 disabled={testStatus?.loading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="bg-stone-800 hover:bg-stone-900 text-white font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${testStatus?.loading ? 'animate-spin' : ''}`} />
                 <span>Test Ping Koneksi</span>
+              </button>
+
+              <button
+                onClick={handleInitSheets}
+                disabled={initStatus?.loading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                <Zap className={`w-3.5 h-3.5 ${initStatus?.loading ? 'animate-spin' : ''}`} />
+                <span>⚡ Buat Sheet Admin & Pesanan Otomatis</span>
               </button>
 
               {testStatus && !testStatus.loading && (
@@ -183,6 +226,62 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                   {testStatus.message}
                 </span>
               )}
+
+              {initStatus && !initStatus.loading && (
+                <div className={`w-full mt-1.5 p-2 rounded-xl text-[11px] font-semibold flex items-center gap-1.5 ${initStatus.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                  {initStatus.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" /> : <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />}
+                  <span>{initStatus.message}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Critical: How to make AdminUsers sheet appear */}
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center font-black text-xs">!</div>
+              <h4 className="font-extrabold text-amber-950 text-xs sm:text-sm">
+                Belum Muncul Sheet "AdminUsers" di Google Sheets Anda?
+              </h4>
+            </div>
+
+            <p className="text-[11px] text-amber-900 leading-relaxed">
+              Google Apps Script <b>tidak otomatis mengubah spreadsheet</b> hanya dengan menyalin kode. Skrip harus dijalankan sekali (klik Run) agar membuat sheet <b>AdminUsers</b> dan <b>Pesanan</b>.
+            </p>
+
+            <div className="space-y-2.5 pt-1">
+              <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5 shadow-xs">
+                <p className="font-extrabold text-stone-900 text-[11px] flex items-center gap-1.5">
+                  <Play className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
+                  <span>CARA 1 (Paling Cepat - 5 Detik di Apps Script):</span>
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-[11px] text-stone-700">
+                  <li>Buka tab editor Apps Script Anda (klik tombol <b>"Buka Google Apps Script"</b> di atas).</li>
+                  <li>Di bilah toolbar atas (sebelah tombol Debug), <b>klik menu pilihan fungsi</b> dan pilih <b>setupSheets</b>.</li>
+                  <li>Klik tombol <b>▷ Jalankan (Run)</b>.</li>
+                  <li>Buka spreadsheet Anda — tab <b>AdminUsers</b> & <b>Pesanan</b> langsung terbuat otomatis!</li>
+                </ol>
+              </div>
+
+              <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5 shadow-xs">
+                <p className="font-extrabold text-stone-900 text-[11px] flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
+                  <span>CARA 2 (Buat Manual di Google Sheets):</span>
+                </p>
+                <p className="text-[11px] text-stone-700">
+                  Di Google Sheets, klik tanda <b>+</b> (Tambah sheet) di pojok kiri bawah, ganti nama sheet menjadi: <b className="font-mono text-emerald-800">AdminUsers</b>.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 text-[10px] font-mono bg-stone-50 p-2 rounded-lg border border-stone-200">
+                  <div><b>A:</b> Username</div>
+                  <div><b>B:</b> Password</div>
+                  <div><b>C:</b> Nama / Peran</div>
+                  <div><b>D:</b> Status</div>
+                  <div><b>E:</b> Terakhir Login</div>
+                </div>
+                <p className="text-[10px] text-stone-600 font-mono bg-emerald-50/70 p-1.5 rounded border border-emerald-200">
+                  Isi Baris 2: admin | dimsumanyu123 | Owner / Admin Utama | Aktif | -
+                </p>
+              </div>
             </div>
           </div>
 
@@ -190,37 +289,55 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           <div className="border border-stone-200 rounded-2xl p-4 space-y-3 bg-white">
             <h4 className="font-extrabold text-stone-900 text-xs flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-emerald-600" />
-              <span>Cara Mengaktifkan Pencatatan Otomatis ke Google Sheets</span>
+              <span>Langkah Lengkap Pasang / Perbarui Code.gs</span>
             </h4>
 
-            {/* Diagnostic Alert Box */}
-            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-amber-900 space-y-1">
-              <p className="font-extrabold text-xs flex items-center gap-1.5 text-amber-950">
-                <span>⚠️</span>
-                <span>Mengapa Pesanan Belum Masuk ke Google Sheets?</span>
-              </p>
-              <p className="text-[11px] leading-relaxed">
-                Skrip Apps Script Anda saat ini masih skrip lama dan belum memiliki fungsi <b>doPost</b> (Google merespons <i>"Script function not found: doPost"</i>).
-              </p>
-              <p className="text-[11px] leading-relaxed">
-                <b>Solusinya:</b> Salin kode <b>Code.gs</b> di bawah, buka Apps Script Anda, lalu terapkan dengan memilih <b>"Versi Baru"</b>. Setelah itu, setiap pesanan yang masuk akan otomatis dicatat ke sheet <b>Pesanan</b>!
-              </p>
-            </div>
-
-            <ol className="space-y-2.5 text-[11px] text-stone-700 list-decimal list-inside pl-1">
+            <ol className="space-y-2 text-[11px] text-stone-700 list-decimal list-inside pl-1">
               <li className="leading-relaxed">
-                Buka file <b>Google Sheets</b> pesanan Anda (atau klik tombol <b>"Buka Google Apps Script"</b> di atas).
+                Salin seluruh kode di bawah ini menggunakan tombol <b>"Salin Kode Code.gs"</b>.
               </li>
               <li className="leading-relaxed">
-                Salin seluruh kode integrasi di bawah ini menggunakan tombol <b>"Salin Kode Code.gs"</b>.
+                Di editor Google Apps Script, buka file <b>Code.gs</b>, hapus isinya, dan <b>Paste (Tempelkan)</b> kode baru ini. Lalu klik ikon <b>Simpan</b>.
               </li>
               <li className="leading-relaxed">
-                Di editor Google Apps Script, buka file <b>Code.gs</b>, hapus isi lamanya, dan <b>Paste (Tempelkan)</b> kode baru ini. Lalu klik ikon <b>Simpan</b>.
+                Pilih fungsi <b>setupSheets</b> di bilah atas lalu klik <b>▷ Jalankan (Run)</b> untuk membuat sheet.
               </li>
               <li className="leading-relaxed">
-                Klik tombol <b>Terapkan (Deploy)</b> di kanan atas &rarr; pilih <b>Kelola penerapan (Manage deployments)</b> &rarr; klik ikon <b>Pensil (Edit)</b> &rarr; pilih Versi: <b>"Versi baru" (New version)</b> &rarr; pastikan Akses: <b>"Siapa saja" (Anyone)</b> &rarr; klik <b>Terapkan</b>.
+                Klik tombol <b>Terapkan (Deploy)</b> &rarr; <b>Kelola penerapan (Manage deployments)</b> &rarr; ikon <b>Pensil (Edit)</b> &rarr; Versi: <b>"Versi baru" (New version)</b> &rarr; Akses: <b>"Siapa saja" (Anyone)</b> &rarr; <b>Terapkan</b>.
               </li>
             </ol>
+
+            {/* Admin Users Sheet Info Box */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Sheet Baru: "AdminUsers" (Daftar Akun & Password)</span>
+              </div>
+              <p className="text-[11px] text-slate-700 leading-relaxed">
+                Skrip ini otomatis menyiapkan sheet <b>AdminUsers</b> di spreadsheet Anda. Anda bisa mendaftarkan staf/kasir baru cukup dengan menambahkan baris baru di sheet tersebut:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-mono bg-white p-2.5 rounded-lg border border-slate-200">
+                <div>
+                  <span className="font-bold text-slate-900 block">Kolom A:</span>
+                  <span className="text-slate-600">Username (misal: kasir)</span>
+                </div>
+                <div>
+                  <span className="font-bold text-slate-900 block">Kolom B:</span>
+                  <span className="text-slate-600">Password</span>
+                </div>
+                <div>
+                  <span className="font-bold text-slate-900 block">Kolom C:</span>
+                  <span className="text-slate-600">Nama / Peran</span>
+                </div>
+                <div>
+                  <span className="font-bold text-slate-900 block">Kolom D:</span>
+                  <span className="text-emerald-700 font-bold">Status (Aktif)</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 italic">
+                * Default awal: <b>admin / dimsumanyu123</b> dan <b>kasir / dimsum123</b>. Anda dapat mengubah atau menambahkan user tanpa batas!
+              </p>
+            </div>
 
             {/* Ready to Copy Code Snippet Box */}
             <div className="pt-2">
