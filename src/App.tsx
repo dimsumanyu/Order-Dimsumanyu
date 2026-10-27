@@ -250,7 +250,7 @@ export default function App() {
         };
       });
 
-      const rincianText = orderItems.map(it => `${it.nama} (${it.qty}x)`).join('\n');
+      const rincianText = orderItems.map(it => `${it.qty}x ${it.nama}`).join('\n');
 
       const now = new Date();
       const pad = (n: number) => n.toString().padStart(2, '0');
@@ -507,6 +507,34 @@ export default function App() {
     }
   };
 
+  const handleMarkOrderAsPrinted = async (id: string) => {
+    try {
+      const now = new Date().toISOString();
+      setOrders(prev => {
+        const updated = prev.map(o => {
+          if (o.id === id) {
+            return {
+              ...o,
+              printCount: (o.printCount || 0) + 1,
+              lastPrintedAt: now,
+            };
+          }
+          return o;
+        });
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      try {
+        await fetch(`/api/orders/${id}/print`, { method: 'PATCH' });
+      } catch {}
+    } catch (err: any) {
+      console.error('Gagal memperbarui status cetak:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-50 pb-20 text-stone-800 flex flex-col justify-between w-full max-w-full overflow-x-hidden">
       <div className="w-full max-w-full">
@@ -587,6 +615,7 @@ export default function App() {
               onOpenSheetsGuide={() => setShowSheetsGuide(true)}
               onLogout={handleAdminLogout}
               onViewStore={() => setActiveView('order')}
+              onMarkAsPrinted={handleMarkOrderAsPrinted}
               isSyncing={isSyncing}
             />
           )}

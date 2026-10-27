@@ -19,10 +19,16 @@ import {
   ShieldCheck,
   UserCheck,
   ShoppingBag,
-  X
+  X,
+  Printer,
+  BarChart3,
+  TrendingUp,
+  DollarSign
 } from 'lucide-react';
 import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
+import { ThermalReceiptModal } from './ThermalReceiptModal';
+import { FinancialReportModal } from './FinancialReportModal';
 
 interface AdminPanelProps {
   orders: OrderData[];
@@ -38,6 +44,7 @@ interface AdminPanelProps {
   onOpenSheetsGuide: () => void;
   onLogout: () => void;
   onViewStore?: () => void;
+  onMarkAsPrinted: (id: string) => Promise<void>;
   isSyncing: boolean;
 }
 
@@ -55,12 +62,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onOpenSheetsGuide,
   onLogout,
   onViewStore,
+  onMarkAsPrinted,
   isSyncing,
 }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'settings'>('orders');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
+
+  // Thermal Receipt Modal State (58mm printer)
+  const [orderForReceipt, setOrderForReceipt] = useState<OrderData | null>(null);
+
+  // Financial Report Modal State (Laporan Keuangan & Best Seller)
+  const [showFinanceModal, setShowFinanceModal] = useState<boolean>(false);
 
   // In-App Order Deletion Modal State (replaces blocked window.confirm)
   const [orderToDelete, setOrderToDelete] = useState<OrderData | null>(null);
@@ -84,7 +98,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [sheetTestResult, setSheetTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Stats calculation
-  const totalRevenue = orders.reduce((sum, o) => sum + o.totalHarga, 0);
+  const totalRevenue = orders
+    .filter(o => o.status !== 'Dibatalkan')
+    .reduce((sum, o) => sum + o.totalHarga, 0);
+
+  const today = new Date();
+  const todayRevenue = orders
+    .filter(o => {
+      if (o.status === 'Dibatalkan') return false;
+      const d = new Date(o.createdAt);
+      return (
+        d.getDate() === today.getDate() &&
+        d.getMonth() === today.getMonth() &&
+        d.getFullYear() === today.getFullYear()
+      );
+    })
+    .reduce((sum, o) => sum + o.totalHarga, 0);
+
   const syncedCount = orders.filter(o => o.syncedToSheets).length;
   const unsyncedCount = orders.length - syncedCount;
 
@@ -279,26 +309,53 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs">
-          <p className="text-[10px] uppercase font-bold text-stone-400">Total Pesanan</p>
-          <p className="text-xl font-black text-stone-900 mt-0.5">{orders.length}</p>
+        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-stone-400">Total Pesanan</p>
+            <p className="text-xl font-black text-stone-900 mt-0.5">{orders.length}</p>
+          </div>
+          <p className="text-[10px] text-stone-500 mt-1 font-medium">Semua transaksi masuk</p>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs">
-          <p className="text-[10px] uppercase font-bold text-stone-400">Total Omset</p>
-          <p className="text-base sm:text-lg font-black text-red-600 mt-0.5 truncate">
-            {formatRupiah(totalRevenue)}
-          </p>
+        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] uppercase font-bold text-stone-400">Total Omset</p>
+              <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+            </div>
+            <p className="text-base sm:text-lg font-black text-red-600 mt-0.5 truncate">
+              {formatRupiah(totalRevenue)}
+            </p>
+            <p className="text-[10px] text-stone-500 font-medium">
+              Hari Ini: <b className="text-stone-800">{formatRupiah(todayRevenue)}</b>
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowFinanceModal(true)}
+            className="mt-2 w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-[10.5px] py-1.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+            title="Buka Dashboard Laporan Keuangan, Filter Periode & Menu Best Seller"
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Laporan Keuangan</span>
+          </button>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs">
-          <p className="text-[10px] uppercase font-bold text-emerald-600">Tersinkron Sheets</p>
-          <p className="text-xl font-black text-emerald-700 mt-0.5">{syncedCount}</p>
+        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-emerald-600">Tersinkron Sheets</p>
+            <p className="text-xl font-black text-emerald-700 mt-0.5">{syncedCount}</p>
+          </div>
+          <p className="text-[10px] text-emerald-700/80 mt-1 font-medium">Masuk ke Google Sheets</p>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs">
-          <p className="text-[10px] uppercase font-bold text-amber-600">Pending Sinkron</p>
-          <p className="text-xl font-black text-amber-700 mt-0.5">{unsyncedCount}</p>
+        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-amber-600">Pending Sinkron</p>
+            <p className="text-xl font-black text-amber-700 mt-0.5">{unsyncedCount}</p>
+          </div>
+          <p className="text-[10px] text-amber-700/80 mt-1 font-medium">Belum tersinkronisasi</p>
         </div>
       </div>
 
@@ -414,6 +471,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <Settings className="w-3.5 h-3.5" />
             <span>Pengaturan Toko</span>
           </button>
+
+          {/* 📊 BUTTON BUKA LAPORAN KEUANGAN */}
+          <button
+            type="button"
+            onClick={() => setShowFinanceModal(true)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 shadow-xs active:scale-95"
+            title="Buka Dashboard Laporan Keuangan, Filter Periode & Menu Best Seller"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-red-600" />
+            <span>Laporan Keuangan 📊</span>
+          </button>
         </div>
 
         {/* Google Sheets Trigger */}
@@ -509,8 +577,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </span>
                       </div>
 
-                      {/* Google Sheets Sync Status Tag */}
-                      <div className="flex items-center gap-2">
+                      {/* Google Sheets Sync Status Tag & Print Status Badge */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Print History Badge */}
+                        {order.printCount && order.printCount > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setOrderForReceipt(order)}
+                            className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-blue-200 transition cursor-pointer"
+                            title={`Telah dicetak ${order.printCount}x. Terakhir: ${order.lastPrintedAt ? new Date(order.lastPrintedAt).toLocaleString('id-ID') : '-'}`}
+                          >
+                            <Printer className="w-3 h-3 text-blue-600" />
+                            <span>Tercetak ({order.printCount}x)</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setOrderForReceipt(order)}
+                            className="inline-flex items-center gap-1 bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-200 transition cursor-pointer"
+                            title="Belum pernah dicetak ke struk thermal"
+                          >
+                            <Printer className="w-3 h-3 text-stone-400" />
+                            <span>Belum Dicetak</span>
+                          </button>
+                        )}
+
                         {order.syncedToSheets ? (
                           <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -577,7 +668,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           {formatRupiah(order.totalHarga)}
                         </p>
 
-                        {/* Status selector & WA broadcast */}
+                        {/* Status selector, WA broadcast & CETAK RESI */}
                         <div className="flex flex-col sm:items-end gap-1.5 pt-1">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-stone-400 font-bold uppercase">Status:</span>
@@ -604,35 +695,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             </select>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              let msg = `*UPDATE STATUS PESANAN DIMSUMANYU*\n`;
-                              msg += `ID Pesanan: #${order.id}\n`;
-                              msg += `Halo Kak *${order.nama}*,\n\n`;
-                              if (order.status === 'Menunggu payment') {
-                                msg += `Pesanan Anda telah kami terima dan saat ini berstatus: *Menunggu Payment* 💳.\nMohon kirimkan bukti pembayaran / transfer agar pesanan langsung kami proses ya Kak. Terima kasih!`;
-                              } else if (order.status === 'Pesanan sedang dimasak') {
-                                msg += `Pesanan Anda saat ini berstatus: *SEDANG DIMASAK* 🔥 di dapur Dimsum Anyu.\nMohon ditunggu sebentar ya Kak!`;
-                              } else if (order.status === 'Pesanan siap') {
-                                msg += `Pesanan Anda saat ini berstatus: *PESANAN SUDAH SIAP* 📦!\n${
-                                  order.opsiPengiriman === 'Ambil di Outlet'
-                                    ? 'Silakan datang ke outlet Dimsum Anyu untuk pengambilan ya Kak.'
-                                    : 'Pesanan sudah siap dan akan segera diantar oleh kurir ke alamat Anda.'
-                                }`;
-                              } else if (order.status === 'Pesanan selesai') {
-                                msg += `Pesanan Anda telah *SELESAI* ✅.\nTerima kasih banyak telah memesan di Dimsum Anyu! Selamat menikmati #SensasiNgedaging 🙏`;
-                              } else {
-                                msg += `Pesanan Anda saat ini berstatus: *${order.status}*.`;
-                              }
-                              window.open(createWhatsAppUrl(order.phone, msg), '_blank');
-                            }}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                            title="Kirim pesan status ke WA pelanggan"
-                          >
-                            <MessageCircle className="w-3 h-3" />
-                            <span>Kirim Update Status ke WA</span>
-                          </button>
+                          <div className="flex flex-wrap items-center gap-1.5 justify-end pt-0.5">
+                            {/* 🖨️ TOMBOL CETAK RESI 58MM */}
+                            <button
+                              type="button"
+                              onClick={() => setOrderForReceipt(order)}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-black text-stone-900 bg-amber-400 hover:bg-amber-500 active:scale-95 border border-amber-500/50 px-3 py-1.5 rounded-xl transition shadow-xs cursor-pointer"
+                              title="Cetak resi ukuran 58mm untuk printer thermal bluetooth"
+                            >
+                              <Printer className="w-3.5 h-3.5 text-stone-900" />
+                              <span>Cetak Resi (58mm)</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                let msg = `*UPDATE STATUS PESANAN DIMSUMANYU*\n`;
+                                msg += `ID Pesanan: #${order.id}\n`;
+                                msg += `Halo Kak *${order.nama}*,\n\n`;
+                                if (order.status === 'Menunggu payment') {
+                                  msg += `Pesanan Anda telah kami terima dan saat ini berstatus: *Menunggu Payment* 💳.\nMohon kirimkan bukti pembayaran / transfer agar pesanan langsung kami proses ya Kak. Terima kasih!`;
+                                } else if (order.status === 'Pesanan sedang dimasak') {
+                                  msg += `Pesanan Anda saat ini berstatus: *SEDANG DIMASAK* 🔥 di dapur Dimsum Anyu.\nMohon ditunggu sebentar ya Kak!`;
+                                } else if (order.status === 'Pesanan siap') {
+                                  msg += `Pesanan Anda saat ini berstatus: *PESANAN SUDAH SIAP* 📦!\n${
+                                    order.opsiPengiriman === 'Ambil di Outlet'
+                                      ? 'Silakan datang ke outlet Dimsum Anyu untuk pengambilan ya Kak.'
+                                      : 'Pesanan sudah siap dan akan segera diantar oleh kurir ke alamat Anda.'
+                                  }`;
+                                } else if (order.status === 'Pesanan selesai') {
+                                  msg += `Pesanan Anda telah *SELESAI* ✅.\nTerima kasih banyak telah memesan di Dimsum Anyu! Selamat menikmati #SensasiNgedaging 🙏`;
+                                } else {
+                                  msg += `Pesanan Anda saat ini berstatus: *${order.status}*.`;
+                                }
+                                window.open(createWhatsAppUrl(order.phone, msg), '_blank');
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1.5 rounded-xl transition cursor-pointer"
+                              title="Kirim pesan status ke WA pelanggan"
+                            >
+                              <MessageCircle className="w-3 h-3" />
+                              <span>Kirim Update Status ke WA</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -641,8 +745,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <div className="bg-stone-50 rounded-xl p-2.5 text-xs text-stone-700 divide-y divide-stone-100">
                       {order.items && order.items.length > 0 ? (
                         order.items.map((it, idx) => (
-                          <div key={idx} className="py-1 first:pt-0 last:pb-0 flex justify-between">
-                            <span>{it.nama} ({it.qty}x)</span>
+                          <div key={idx} className="py-1 first:pt-0 last:pb-0 flex justify-between items-center">
+                            <span className="font-medium text-stone-800 flex items-center gap-1.5">
+                              <span className="text-stone-400 font-bold select-none">•</span>
+                              <span><b className="font-extrabold text-stone-900">{it.qty}x</b> {it.nama}</span>
+                            </span>
                             <span className="font-semibold text-stone-900">{formatRupiah(it.subtotal)}</span>
                           </div>
                         ))
@@ -979,6 +1086,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* 🖨️ MODAL CETAK RESI THERMAL (58MM) */}
+      <ThermalReceiptModal
+        isOpen={!!orderForReceipt}
+        order={orderForReceipt}
+        onClose={() => setOrderForReceipt(null)}
+        onMarkAsPrinted={async (orderId) => {
+          await onMarkAsPrinted(orderId);
+          // Keep local state in modal updated immediately with print count & timestamp
+          if (orderForReceipt && orderForReceipt.id === orderId) {
+            setOrderForReceipt({
+              ...orderForReceipt,
+              printCount: (orderForReceipt.printCount || 0) + 1,
+              lastPrintedAt: new Date().toISOString(),
+            });
+          }
+        }}
+        settings={settings}
+      />
+
+      {/* 📊 MODAL DASHBOARD LAPORAN KEUANGAN & BEST SELLER */}
+      <FinancialReportModal
+        isOpen={showFinanceModal}
+        onClose={() => setShowFinanceModal(false)}
+        orders={orders}
+        menuItems={menuItems}
+        settings={settings}
+      />
     </div>
   );
 };

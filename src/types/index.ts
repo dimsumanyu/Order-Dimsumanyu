@@ -45,6 +45,8 @@ export interface OrderData {
   syncedToSheets?: boolean;
   sheetsSyncError?: string;
   sheetsSyncTimestamp?: string;
+  printCount?: number;
+  lastPrintedAt?: string;
 }
 
 export interface AppSettings {

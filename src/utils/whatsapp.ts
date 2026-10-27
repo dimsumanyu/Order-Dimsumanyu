@@ -24,7 +24,7 @@ export function generateWhatsAppMessage(order: OrderData): string {
   message += `*RINCIAN PESANAN:*\n`;
 
   order.items.forEach(item => {
-    message += `• ${item.nama} (${item.qty}x) = ${formatRupiah(item.subtotal)}\n`;
+    message += `• *${item.qty}x* ${item.nama} = ${formatRupiah(item.subtotal)}\n`;
   });
 
   message += `-------------------------------------------\n`;

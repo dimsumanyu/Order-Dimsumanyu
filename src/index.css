@@ -16,3 +16,45 @@ html, body {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* 58mm Thermal Printer Optimization */
+@media print {
+  @page {
+    size: 58mm auto;
+    margin: 0mm;
+  }
+
+  html, body {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide regular page elements */
+  header, nav, footer, main, aside,
+  .no-print,
+  #root > *:not(#print-mount-point) {
+    display: none !important;
+  }
+
+  /* Make sure thermal print receipt is full width of 58mm */
+  .thermal-receipt-printable {
+    display: block !important;
+    position: static !important;
+    width: 54mm !important;
+    max-width: 54mm !important;
+    margin: 0 auto !important;
+    padding: 1.5mm 1mm 4mm 1mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    page-break-after: avoid !important;
+  }
+}

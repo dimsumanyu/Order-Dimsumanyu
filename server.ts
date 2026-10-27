@@ -284,6 +284,18 @@ async function startServer() {
     res.json({ success: true, order });
   });
 
+  app.patch('/api/orders/:id/print', (req, res) => {
+    const { id } = req.params;
+    const order = orders.find(o => o.id === id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Pesanan tidak ditemukan' });
+    }
+    order.printCount = (order.printCount || 0) + 1;
+    order.lastPrintedAt = new Date().toISOString();
+    saveJSON(ORDERS_FILE, orders);
+    res.json({ success: true, order, printCount: order.printCount, lastPrintedAt: order.lastPrintedAt });
+  });
+
   app.delete('/api/orders/:id', (req, res) => {
     const { id } = req.params;
     orders = orders.filter(o => o.id !== id);

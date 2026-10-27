@@ -127,7 +127,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
             return (
               <div key={id} className="pt-1.5 first:pt-0 flex justify-between items-center">
                 <span>
-                  • {item.nama} <b className="text-red-700 font-extrabold">({qty}x)</b>
+                  • <b className="text-red-700 font-extrabold">{qty}x</b> {item.nama}
                 </span>
                 <span className="font-bold text-stone-900">
                   {formatRupiah(item.harga * qty)}
