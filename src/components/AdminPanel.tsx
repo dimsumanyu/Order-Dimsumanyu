@@ -29,6 +29,7 @@ import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
 import { ThermalReceiptModal } from './ThermalReceiptModal';
 import { FinancialReportModal } from './FinancialReportModal';
+import { PrinterSetupModal } from './PrinterSetupModal';
 import { ErrorBoundary } from './ErrorBoundary';
 
 function parseDateSafe(val: any): Date | null {
@@ -99,6 +100,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Financial Report Modal State (Laporan Keuangan & Best Seller)
   const [showFinanceModal, setShowFinanceModal] = useState<boolean>(false);
+
+  // Printer Setup Modal State (Kasir Mini style printer discovery)
+  const [showPrinterSetupModal, setShowPrinterSetupModal] = useState<boolean>(false);
 
   // In-App Order Deletion Modal State (replaces blocked window.confirm)
   const [orderToDelete, setOrderToDelete] = useState<OrderData | null>(null);
@@ -510,6 +514,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <BarChart3 className="w-3.5 h-3.5 text-red-600" />
             <span>Laporan Keuangan 📊</span>
+          </button>
+
+          {/* 🖨️ BUTTON PENGATURAN PRINTER KASIR (ALA KASIR MINI) */}
+          <button
+            type="button"
+            onClick={() => setShowPrinterSetupModal(true)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer bg-amber-50 hover:bg-amber-100 text-stone-900 border border-amber-300 shadow-xs active:scale-95"
+            title="Hubungkan & Atur Printer Thermal Kasir (Bluetooth BLE, WiFi, RawBT)"
+          >
+            <Printer className="w-3.5 h-3.5 text-amber-600" />
+            <span>Printer Kasir (58mm) 🖨️</span>
           </button>
         </div>
 
@@ -1229,6 +1244,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           />
         </ErrorBoundary>
       )}
+
+      {/* 🖨️ MODAL PENGATURAN PRINTER KASIR (KASIR MINI) */}
+      <PrinterSetupModal
+        isOpen={showPrinterSetupModal}
+        onClose={() => setShowPrinterSetupModal(false)}
+      />
     </div>
   );
 };

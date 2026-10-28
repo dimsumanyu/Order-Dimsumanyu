@@ -200,7 +200,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 type="button"
                 onClick={() => {
                   setShippingOption('Diantar ke Alamat');
-                  if (alamat.includes('Ambil di Outlet')) setAlamat('');
+                  setAlamat('');
                 }}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   shippingOption === 'Diantar ke Alamat'
@@ -216,7 +216,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 type="button"
                 onClick={() => {
                   setShippingOption('Ambil di Outlet');
-                  if (!alamat || alamat === '') setAlamat('Ambil langsung di Outlet DIMSUMANYU');
+                  setAlamat('Ambil langsung di Outlet DIMSUMANYU');
                 }}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   shippingOption === 'Ambil di Outlet'
@@ -231,9 +231,16 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
           {/* Address / Pickup Notes */}
           <div>
-            <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-              {shippingOption === 'Ambil di Outlet' ? 'Keterangan / Jam Pengambilan *' : 'Alamat Pengiriman Lengkap *'}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                {shippingOption === 'Ambil di Outlet' ? 'Lokasi Pengambilan *' : 'Alamat Pengiriman Lengkap *'}
+              </label>
+              {shippingOption === 'Ambil di Outlet' && (
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  ✓ Terisi otomatis
+                </span>
+              )}
+            </div>
             <div className="relative">
               <MapPin className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
               <textarea
