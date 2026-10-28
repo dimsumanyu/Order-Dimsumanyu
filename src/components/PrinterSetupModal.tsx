@@ -360,10 +360,11 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
               </div>
               <div className="text-xs text-stone-600 space-y-1">
                 <p className="font-extrabold text-stone-900">
-                  Printer WiFi / Jaringan LAN
+                  Koneksi Printer WiFi (2 Cara Kerja)
                 </p>
-                <p className="leading-relaxed">
-                  Untuk printer kasir yang tersambung ke jaringan WiFi outlet yang sama. Masukkan alamat IP printer thermal Anda:
+                <p className="leading-relaxed text-[11px]">
+                  <b>1. WiFi Langsung dari Printer (Mode AP)</b>: Hubungkan HP/Laptop Anda ke sinyal WiFi yang dipancarkan printernya (misal: <i>POS_WiFi</i> atau <i>Printer_AP</i>).<br/>
+                  <b>2. WiFi Router Bersama (Mode Klien)</b>: Printer dan HP sama-sama tersambung ke WiFi router toko/outlet yang sama.
                 </p>
               </div>
             </div>
@@ -377,7 +378,7 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
                   type="text"
                   value={wifiIp}
                   onChange={(e) => setWifiIp(e.target.value)}
-                  placeholder="192.168.1.100"
+                  placeholder="192.168.123.100"
                   className="w-full px-3 py-2 bg-white rounded-xl border border-stone-300 text-xs font-mono outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
                 />
               </div>
@@ -393,6 +394,33 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
                   className="w-full px-3 py-2 bg-white rounded-xl border border-stone-300 text-xs font-mono outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
                 />
               </div>
+            </div>
+
+            {/* Quick Presets for common thermal printer IPs */}
+            <div>
+              <span className="text-[10px] font-bold text-stone-500 block mb-1">Pilihan Cepat IP Bawaan Pabrik:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {['192.168.123.100', '192.168.1.100', '192.168.0.100', '192.168.4.1'].map((ip) => (
+                  <button
+                    key={ip}
+                    type="button"
+                    onClick={() => setWifiIp(ip)}
+                    className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-white border border-stone-200 hover:border-emerald-500 hover:text-emerald-700 transition cursor-pointer"
+                  >
+                    {ip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Self-Test Guide Box */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-950 space-y-1">
+              <p className="font-extrabold flex items-center gap-1 text-amber-900">
+                <span>💡 Trik Mengetahui IP &amp; Jenis Printer Anda:</span>
+              </p>
+              <p className="text-[10.5px] leading-relaxed">
+                Matikan printer (Power OFF) → Tahan tombol <b>FEED</b> kertas → Sambil ditahan nyalakan <b>POWER (ON)</b> selama 3 detik lalu lepas tombol FEED. Printer akan otomatis mencetak kertas struk berisi <b>IP Address</b> dan jenis koneksi printer Anda!
+              </p>
             </div>
 
             <button
