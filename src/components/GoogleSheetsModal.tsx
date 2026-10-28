@@ -347,17 +347,27 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
 
             {/* Ready to Copy Code Snippet Box */}
             <div className="pt-2">
-              <div className="flex items-center justify-between bg-stone-900 text-stone-200 px-3.5 py-2 rounded-t-xl text-[11px] font-mono">
-                <span className="flex items-center gap-1.5">
-                  <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                  Code.gs (Apps Script Otomatis)
+              <div className="mb-2 bg-emerald-50 border border-emerald-300 p-2.5 rounded-xl text-[11px] text-emerald-950 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-extrabold text-emerald-900">Versi 2.2 (Pembaruan Sinkronisasi Multi-Device Real-Time):</span>
+                  <p className="mt-0.5 text-emerald-800 leading-relaxed">
+                    Dilengkapi dengan fungsi <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">getOrders</code> dan <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">updateStatus</code>. Setelah menempel kode ini dan men-deploy Versi Baru, semua pesanan dari iPhone 13 dan semua HP langsung masuk otomatis ke panel pengelola!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between bg-stone-900 text-stone-200 px-3.5 py-2.5 rounded-t-xl text-[11px] font-mono">
+                <span className="flex items-center gap-1.5 font-bold text-white">
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                  Code.gs (Versi 2.2 - Sinkronisasi iPhone &amp; Semua Perangkat)
                 </span>
                 <button
                   onClick={handleCopyCode}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
-                  {copiedCode ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedCode ? 'Kode Tersalin!' : 'Salin Kode Code.gs'}</span>
+                  {copiedCode ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedCode ? 'Seluruh Kode Tersalin!' : 'Salin Seluruh Kode Code.gs'}</span>
                 </button>
               </div>
               <pre className="bg-stone-950 text-stone-300 p-3 rounded-b-xl text-[10px] font-mono overflow-x-auto max-h-40 border border-t-0 border-stone-800">

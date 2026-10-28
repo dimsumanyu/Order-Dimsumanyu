@@ -31,6 +31,19 @@ import { ThermalReceiptModal } from './ThermalReceiptModal';
 import { FinancialReportModal } from './FinancialReportModal';
 import { ErrorBoundary } from './ErrorBoundary';
 
+function parseDateSafe(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'string') {
+    const cleaned = val.trim().replace(' ', 'T');
+    const d = new Date(cleaned);
+    if (!isNaN(d.getTime())) return d;
+    const d2 = new Date(val);
+    if (!isNaN(d2.getTime())) return d2;
+  }
+  return null;
+}
+
 interface AdminPanelProps {
   orders: OrderData[];
   menuItems: MenuItem[];
@@ -50,6 +63,8 @@ interface AdminPanelProps {
   onRefreshOrders?: () => Promise<void>;
   isRefreshing?: boolean;
   lastSyncedTime?: Date | null;
+  sheetsScriptNeedsUpdate?: boolean;
+  syncFeedback?: string | null;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -71,6 +86,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onRefreshOrders,
   isRefreshing,
   lastSyncedTime,
+  sheetsScriptNeedsUpdate,
+  syncFeedback,
 }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'settings'>('orders');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -115,8 +132,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       if (!o) return false;
       if (o.status === 'Dibatalkan') return false;
       if (!o.createdAt) return false;
-      const d = new Date(o.createdAt);
-      if (isNaN(d.getTime())) return false;
+      const d = parseDateSafe(o.createdAt);
+      if (!d || isNaN(d.getTime())) return false;
       return (
         d.getDate() === today.getDate() &&
         d.getMonth() === today.getMonth() &&
@@ -509,6 +526,62 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Tab 1: Orders Management */}
       {activeTab === 'orders' && (
         <div className="space-y-3">
+          {/* 🔴 SINKRONISASI SEMUA HP (IPHONE & ANDROID) BANNER JIKA SCRIPT BUTUH DEPLOYMENT BARU */}
+          {sheetsScriptNeedsUpdate && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 text-stone-900 p-4 rounded-2xl shadow-sm space-y-2 animate-in fade-in">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-sm shrink-0 mt-0.5 shadow-xs">
+                  !
+                </div>
+                <div className="flex-1 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-extrabold text-amber-950 text-sm">
+                      Sinkronisasi Pesanan Antar HP (iPhone 13 &amp; Semua Perangkat)
+                    </h4>
+                    <span className="bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      Perlu Deploy Versi Baru
+                    </span>
+                  </div>
+                  <p className="mt-1 leading-relaxed text-stone-700">
+                    Orderan yang masuk dari iPhone 13 atau HP pelanggan sudah tersimpan di Google Sheets Anda. Namun, <b>Google Apps Script di akun Google Anda masih menjalankan versi lama</b> (belum memiliki fungsi penarikan data <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-mono font-bold">getOrders</code>).
+                  </p>
+                  <p className="mt-1 font-semibold text-stone-900">
+                    👉 Buka spreadsheet Google Anda, tempel Code.gs baru (Versi 2.2), lalu klik <b>Terapkan &gt; Kelola Penerapan &gt; Edit &gt; Versi Baru &gt; Terapkan</b>. Setelah itu semua pesanan dari iPhone 13 &amp; HP manapun akan langsung masuk otomatis!
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onOpenSheetsGuide}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer active:scale-95"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>📋 Buka Panduan &amp; Salin Code.gs (Versi 2.2)</span>
+                    </button>
+                    {onRefreshOrders && (
+                      <button
+                        type="button"
+                        onClick={onRefreshOrders}
+                        disabled={isRefreshing}
+                        className="bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <span>Coba Tarik Ulang dari Sheets</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sync Success Feedback */}
+          {syncFeedback && (
+            <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{syncFeedback}</span>
+            </div>
+          )}
+
           {/* Controls: Search, Status filter, Sync all, Export */}
           <div className="bg-white p-3.5 rounded-2xl border border-stone-200 space-y-3 shadow-xs">
             <div className="flex flex-col sm:flex-row gap-2">

@@ -371,21 +371,35 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // 6. Ambil seluruh data pesanan dari sheet 'Pesanan' (Sinkronisasi Antar Device)
+  // 6. Ambil seluruh data pesanan dari sheet 'Pesanan' (Sinkronisasi Antar Device Real-time)
   if (action === 'getOrders' || action === 'getPesanan' || action === 'fetchOrders') {
     var pesananList = getPesananFromSheet();
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       orders: pesananList,
-      count: pesananList.length
+      count: pesananList.length,
+      version: "2.2"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // 7. Update status pesanan via GET
+  if (action === 'updateStatus' || action === 'updateOrderStatus') {
+    var uOrderId = e.parameter.id || e.parameter.orderId;
+    var uStatus = e.parameter.status;
+    var uSuccess = updateOrderStatusInSheet(uOrderId, uStatus);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: uSuccess,
+      message: uSuccess ? "Status pesanan berhasil diupdate di Google Sheets!" : "Pesanan tidak ditemukan",
+      orderId: uOrderId,
+      status: uStatus
     })).setMimeType(ContentService.MimeType.JSON);
   }
   
-  // 6. Status ping
+  // 8. Status ping
   return ContentService.createTextOutput(JSON.stringify({
     status: "ok",
     app: "DIMSUMANYU",
-    version: "2.1",
+    version: "2.2",
     message: "Google Apps Script aktif & terhubung dengan sheet Pesanan & Admin User!",
     timestamp: new Date().toISOString()
   })).setMimeType(ContentService.MimeType.JSON);
@@ -512,6 +526,20 @@ function getMenuData() {
   return menu;
 }
 
+function updateOrderStatusInSheet(orderId, newStatus) {
+  var ss = getTargetSpreadsheet();
+  var sheet = ss.getSheetByName("Pesanan") || ss.getSheetByName("Orders");
+  if (!sheet) return false;
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][1]).trim() === String(orderId).trim()) {
+      sheet.getRange(i + 1, 11).setValue(newStatus);
+      return true;
+    }
+  }
+  return false;
+}
+
 function getPesananFromSheet() {
   var ss = getTargetSpreadsheet();
   var sheet = ss.getSheetByName("Pesanan") || ss.getSheetByName("Orders");
@@ -532,6 +560,37 @@ function getPesananFromSheet() {
 
     var dateVal = row[0];
     var createdAtStr = dateVal instanceof Date ? dateVal.toISOString() : String(dateVal || new Date().toISOString());
+    var rincian = String(row[8] || "").trim();
+
+    // Rekonstruksi items agar struk dan rincian menu tampil rapi
+    var parsedItems = [];
+    if (rincian) {
+      var lines = rincian.split(/\r?\n/);
+      for (var l = 0; l < lines.length; l++) {
+        var line = lines[l].trim();
+        if (!line) continue;
+        var match = line.match(/^(\d+)x\s+(.+)$/i);
+        if (match) {
+          var qty = parseInt(match[1], 10) || 1;
+          var itemNama = match[2].trim();
+          parsedItems.push({
+            id: 'item-' + l,
+            nama: itemNama,
+            qty: qty,
+            harga: 0,
+            subtotal: 0
+          });
+        } else {
+          parsedItems.push({
+            id: 'item-' + l,
+            nama: line,
+            qty: 1,
+            harga: 0,
+            subtotal: 0
+          });
+        }
+      }
+    }
 
     orders.push({
       id: orderId,
@@ -542,14 +601,15 @@ function getPesananFromSheet() {
       alamat: String(row[5] || "").trim(),
       metodeBayar: String(row[6] || "QRIS").trim(),
       catatan: String(row[7] || "").trim(),
-      rincianMenu: String(row[8] || "").trim(),
+      rincianMenu: rincian,
+      items: parsedItems,
       totalHarga: totalHarga,
       status: String(row[10] || "Menunggu payment").trim(),
       syncedToSheets: true
     });
   }
 
-  // Urutkan dari yang terbaru
+  // Urutkan dari yang paling baru
   return orders.reverse();
 }
 `;

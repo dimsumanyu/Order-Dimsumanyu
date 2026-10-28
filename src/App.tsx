@@ -68,19 +68,65 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(new Date());
   const [isRefreshingOrders, setIsRefreshingOrders] = useState<boolean>(false);
+  const [sheetsScriptNeedsUpdate, setSheetsScriptNeedsUpdate] = useState<boolean>(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
-  // Dedicated real-time order refresher across all devices
+  // Helper to fetch directly from Google Apps Script if server endpoint fails or runs on static Vercel
+  const fetchDirectFromGoogleSheets = async (): Promise<OrderData[] | null> => {
+    if (!settings.appsScriptUrl) return null;
+    try {
+      const url = `${settings.appsScriptUrl}?action=getOrders&_t=${Date.now()}`;
+      const res = await fetch(url, { redirect: 'follow' });
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+
+      if (data && data.success && Array.isArray(data.orders)) {
+        setSheetsScriptNeedsUpdate(false);
+        return data.orders;
+      }
+
+      // If response is {"status":"ok", ...} but without orders, the script is running old Code.gs
+      if (data && data.status === 'ok' && !data.orders) {
+        setSheetsScriptNeedsUpdate(true);
+      }
+    } catch (e) {
+      console.warn('Direct fetch from Google Sheets failed:', e);
+    }
+    return null;
+  };
+
+  // Dedicated real-time order refresher across all devices (iPhone 13, iPhone 15, desktop, etc.)
   const fetchOrdersOnly = async () => {
     try {
+      let remoteOrders: OrderData[] | null = null;
+
+      // 1. Try fetching from /api/orders (supported in Node and Vercel serverless functions)
       const resOrders = await fetch('/api/orders')
         .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
         .catch(() => null);
 
-      if (resOrders?.orders && Array.isArray(resOrders.orders)) {
+      if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
+        remoteOrders = resOrders.orders;
+        if (resOrders.needsDeployment) {
+          setSheetsScriptNeedsUpdate(true);
+        } else {
+          setSheetsScriptNeedsUpdate(false);
+        }
+      }
+
+      // 2. If /api/orders returned nothing or running on static Vercel, fetch directly from Google Sheets
+      if (!remoteOrders) {
+        remoteOrders = await fetchDirectFromGoogleSheets();
+      }
+
+      if (remoteOrders && Array.isArray(remoteOrders)) {
         setOrders(prev => {
-          const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !serverIds.has(p.id));
-          const merged = [...resOrders.orders, ...localOnly];
+          const remoteIds = new Set(remoteOrders!.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
+          const merged = [...remoteOrders!, ...localOnly];
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -95,13 +141,36 @@ export default function App() {
 
   const handleManualRefreshOrders = async () => {
     setIsRefreshingOrders(true);
+    setSyncFeedback(null);
     try {
-      // 1. First pull any new orders from Google Sheets into the server
+      // 1. First pull on server if running in fullstack mode
       await fetch('/api/orders/pull-sheets').catch(() => null);
-      // 2. Fetch all fresh orders
-      await fetchOrdersOnly();
+
+      // 2. Pull directly from Google Sheets
+      const sheetOrders = await fetchDirectFromGoogleSheets();
+      if (sheetOrders && Array.isArray(sheetOrders)) {
+        setOrders(prev => {
+          const remoteIds = new Set(sheetOrders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
+          const merged = [...sheetOrders, ...localOnly];
+          try {
+            localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+        setLastSyncedTime(new Date());
+        setSyncFeedback(`✅ Berhasil menyinkronkan ${sheetOrders.length} pesanan dari Google Sheets!`);
+      } else {
+        await fetchOrdersOnly();
+        if (sheetsScriptNeedsUpdate) {
+          setSyncFeedback('⚠️ Google Apps Script perlu di-deploy Versi Baru agar pesanan dari semua HP masuk.');
+        } else {
+          setSyncFeedback('Pesanan berhasil disegarkan.');
+        }
+      }
     } finally {
       setIsRefreshingOrders(false);
+      setTimeout(() => setSyncFeedback(null), 6000);
     }
   };
 
@@ -126,7 +195,7 @@ export default function App() {
         localStorage.setItem('dimsumanyu_menu', JSON.stringify(resMenu.menu));
       }
 
-      if (resOrders?.orders && Array.isArray(resOrders.orders)) {
+      if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
         setOrders(prev => {
           const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
           const localOnly = prev.filter(p => p && !serverIds.has(p.id));
@@ -137,6 +206,21 @@ export default function App() {
           return merged;
         });
         setLastSyncedTime(new Date());
+      } else {
+        // Fallback: fetch directly from Google Sheets
+        const directOrders = await fetchDirectFromGoogleSheets();
+        if (directOrders && Array.isArray(directOrders)) {
+          setOrders(prev => {
+            const serverIds = new Set(directOrders.map((o: OrderData) => o.id));
+            const localOnly = prev.filter(p => p && !serverIds.has(p.id));
+            const merged = [...directOrders, ...localOnly];
+            try {
+              localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+          setLastSyncedTime(new Date());
+        }
       }
 
       if (resSettings?.settings) {
@@ -285,8 +369,15 @@ export default function App() {
     if (!settings.appsScriptUrl) return false;
     try {
       const targetUrl = `${settings.appsScriptUrl}?action=order&payload=${encodeURIComponent(JSON.stringify(order))}`;
-      // mode: 'no-cors' allows browser to ping Google Apps Script without CORS blockage
+      // 1. Send with standard fetch (follow redirect to allow Google Apps Script to finish)
+      fetch(targetUrl, { method: 'GET', redirect: 'follow' }).catch(() => {});
+      // 2. Fallback mode: 'no-cors'
       fetch(targetUrl, { mode: 'no-cors' }).catch(() => {});
+      // 3. Fallback Image beacon to guarantee delivery on iOS Safari / iPhone 13 even on tab switch
+      if (typeof Image !== 'undefined') {
+        const beacon = new Image();
+        beacon.src = targetUrl;
+      }
       return true;
     } catch (e) {
       console.warn('Direct Apps Script ping failed:', e);
@@ -424,8 +515,12 @@ export default function App() {
       } catch {}
 
       // 3. Inform Google Apps Script about status change if possible
-      if (updatedOrder && settings.appsScriptUrl) {
-        sendDirectToAppsScript(updatedOrder);
+      if (settings.appsScriptUrl) {
+        const updateUrl = `${settings.appsScriptUrl}?action=updateStatus&id=${encodeURIComponent(id)}&status=${encodeURIComponent(status)}&_t=${Date.now()}`;
+        fetch(updateUrl, { redirect: 'follow' }).catch(() => {});
+        if (updatedOrder) {
+          sendDirectToAppsScript(updatedOrder);
+        }
       }
     } catch (err: any) {
       alert('Gagal mengubah status: ' + err.message);
@@ -686,6 +781,8 @@ export default function App() {
               onRefreshOrders={handleManualRefreshOrders}
               isRefreshing={isRefreshingOrders}
               lastSyncedTime={lastSyncedTime}
+              sheetsScriptNeedsUpdate={sheetsScriptNeedsUpdate}
+              syncFeedback={syncFeedback}
             />
           )}
         </main>
