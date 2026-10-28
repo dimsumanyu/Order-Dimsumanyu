@@ -183,37 +183,87 @@ async function startServer() {
         metodeBayar: orderData.metodeBayar || 'QRIS',
         catatan: orderData.catatan || '',
         rincianMenu: orderData.rincianMenu || '',
-        totalHarga: orderData.totalHarga || 0,
+        totalHarga: Number(orderData.totalHarga) || 0,
         items: orderData.items || [],
-        createdAt: new Date().toISOString(),
+        createdAt: orderData.createdAt || new Date().toISOString(),
         status: (orderData.status as OrderStatus) || 'Menunggu payment',
         syncedToSheets: false
       };
 
-      // Attempt immediate sync to Google Apps Script / Google Sheets
-      if (settings.appsScriptUrl) {
-        const syncRes = await sendToAppsScript(newOrder, settings.appsScriptUrl);
-        if (syncRes.success) {
-          newOrder.syncedToSheets = true;
-          newOrder.sheetsSyncTimestamp = new Date().toISOString();
-        } else {
-          newOrder.syncedToSheets = false;
-          newOrder.sheetsSyncError = syncRes.error;
-        }
-      }
-
-      orders.unshift(newOrder);
+      // 1. SAVE IMMEDIATELY to server state & disk so order is 100% persisted across all devices!
+      orders = [newOrder, ...orders.filter(o => o.id !== newOrder.id)];
       saveJSON(ORDERS_FILE, orders);
+
+      // 2. Perform Google Apps Script sync in background so network/timeout doesn't drop the order
+      if (settings.appsScriptUrl) {
+        sendToAppsScript(newOrder, settings.appsScriptUrl)
+          .then(syncRes => {
+            if (syncRes.success) {
+              newOrder.syncedToSheets = true;
+              newOrder.sheetsSyncTimestamp = new Date().toISOString();
+              delete newOrder.sheetsSyncError;
+            } else {
+              newOrder.syncedToSheets = false;
+              newOrder.sheetsSyncError = syncRes.error;
+            }
+            saveJSON(ORDERS_FILE, orders);
+          })
+          .catch(e => {
+            newOrder.syncedToSheets = false;
+            newOrder.sheetsSyncError = e.message;
+            saveJSON(ORDERS_FILE, orders);
+          });
+      }
 
       res.json({
         success: true,
         order: newOrder,
-        syncedToSheets: newOrder.syncedToSheets,
-        sheetsSyncError: newOrder.sheetsSyncError
+        syncedToSheets: newOrder.syncedToSheets
       });
     } catch (err: any) {
       console.error('Error creating order:', err);
       res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Pull / Sync orders from Google Sheets into server
+  app.get('/api/orders/pull-sheets', async (_req, res) => {
+    try {
+      if (!settings.appsScriptUrl) {
+        return res.json({ success: true, orders, message: 'Apps Script belum diatur.' });
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const url = `${settings.appsScriptUrl}?action=getOrders`;
+      const sheetsRes = await fetch(url, { signal: controller.signal, redirect: 'follow' });
+      clearTimeout(timeout);
+
+      const json = await sheetsRes.json();
+      if (json && json.success && Array.isArray(json.orders)) {
+        const existingIds = new Set(orders.map(o => o.id));
+        let addedCount = 0;
+        json.orders.forEach((sheetOrd: any) => {
+          if (sheetOrd && sheetOrd.id && !existingIds.has(sheetOrd.id)) {
+            orders.unshift(sheetOrd);
+            existingIds.add(sheetOrd.id);
+            addedCount++;
+          }
+        });
+        if (addedCount > 0) {
+          saveJSON(ORDERS_FILE, orders);
+        }
+        return res.json({
+          success: true,
+          orders,
+          addedCount,
+          message: `Berhasil menarik ${addedCount} pesanan dari Google Sheets!`
+        });
+      }
+
+      res.json({ success: true, orders, message: 'Tidak ada pesanan baru di Google Sheets.' });
+    } catch (e: any) {
+      res.json({ success: true, orders, error: e.message });
     }
   });
 

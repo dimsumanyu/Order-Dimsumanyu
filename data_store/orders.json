@@ -1,5 +1,29 @@
 [
   {
+    "id": "DAN-20261028-002549",
+    "nama": "Budi Santoso",
+    "phone": "081298765432",
+    "opsiPengiriman": "Diantar ke Alamat",
+    "alamat": "Jl. Ahmad Yani No. 12",
+    "metodeBayar": "QRIS",
+    "catatan": "",
+    "rincianMenu": "1x GORENG MENTAI ISI 5 PCS",
+    "totalHarga": 35000,
+    "items": [
+      {
+        "id": "menu-6",
+        "nama": "GORENG MENTAI ISI 5 PCS",
+        "harga": 35000,
+        "qty": 1,
+        "subtotal": 35000
+      }
+    ],
+    "createdAt": "2026-10-28T00:25:49.722Z",
+    "status": "Menunggu payment",
+    "syncedToSheets": true,
+    "sheetsSyncTimestamp": "2026-10-28T00:25:52.230Z"
+  },
+  {
     "id": "DAN-20261024-025352",
     "nama": "Siti Rahma",
     "phone": "085712345678",

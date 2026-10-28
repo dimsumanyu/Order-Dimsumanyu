@@ -66,6 +66,44 @@ export default function App() {
     return typeof window !== 'undefined' && localStorage.getItem('dimsumanyu_admin_session') === 'authenticated';
   });
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(new Date());
+  const [isRefreshingOrders, setIsRefreshingOrders] = useState<boolean>(false);
+
+  // Dedicated real-time order refresher across all devices
+  const fetchOrdersOnly = async () => {
+    try {
+      const resOrders = await fetch('/api/orders')
+        .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
+        .catch(() => null);
+
+      if (resOrders?.orders && Array.isArray(resOrders.orders)) {
+        setOrders(prev => {
+          const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !serverIds.has(p.id));
+          const merged = [...resOrders.orders, ...localOnly];
+          try {
+            localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+        setLastSyncedTime(new Date());
+      }
+    } catch (e) {
+      console.warn('Error refreshing orders:', e);
+    }
+  };
+
+  const handleManualRefreshOrders = async () => {
+    setIsRefreshingOrders(true);
+    try {
+      // 1. First pull any new orders from Google Sheets into the server
+      await fetch('/api/orders/pull-sheets').catch(() => null);
+      // 2. Fetch all fresh orders
+      await fetchOrdersOnly();
+    } finally {
+      setIsRefreshingOrders(false);
+    }
+  };
 
   // Load Initial Data (with resilient fallback for static Vercel hosting)
   const fetchData = async () => {
@@ -90,13 +128,15 @@ export default function App() {
 
       if (resOrders?.orders && Array.isArray(resOrders.orders)) {
         setOrders(prev => {
-          const merged = [...resOrders.orders];
-          prev.forEach(p => {
-            if (!merged.some(m => m.id === p.id)) merged.push(p);
-          });
-          localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
+          const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !serverIds.has(p.id));
+          const merged = [...resOrders.orders, ...localOnly];
+          try {
+            localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
+          } catch {}
           return merged;
         });
+        setLastSyncedTime(new Date());
       }
 
       if (resSettings?.settings) {
@@ -108,8 +148,22 @@ export default function App() {
     }
   };
 
+  // Real-time synchronization across all devices (iPhone 13, iPhone 15, desktop, etc.)
   useEffect(() => {
     fetchData();
+
+    // Auto-poll orders: every 7 seconds when Admin view is active, every 30 seconds when in customer view
+    const intervalTime = activeView === 'admin' ? 7000 : 30000;
+    const interval = setInterval(() => {
+      fetchOrdersOnly();
+    }, intervalTime);
+
+    // Refresh immediately when tab gains focus or mobile device is unlocked
+    const handleFocus = () => {
+      fetchOrdersOnly();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
 
     // Check URL parameters for admin shortcut (?admin=true or ?mode=admin)
     const params = new URLSearchParams(window.location.search);
@@ -118,6 +172,7 @@ export default function App() {
       if (isAuth) {
         setIsAdminLoggedIn(true);
         setActiveView('admin');
+        fetchOrdersOnly();
       } else {
         setShowLoginModal(true);
       }
@@ -132,12 +187,22 @@ export default function App() {
         setShowTrackingModal(true);
       }
     }
-  }, []);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [activeView]);
 
   // Admin Auth Handlers
   const handleOpenAdminLogin = () => {
     if (isAdminLoggedIn) {
-      setActiveView(activeView === 'admin' ? 'order' : 'admin');
+      const nextView = activeView === 'admin' ? 'order' : 'admin';
+      setActiveView(nextView);
+      if (nextView === 'admin') {
+        fetchOrdersOnly();
+      }
     } else {
       setShowLoginModal(true);
     }
@@ -146,6 +211,7 @@ export default function App() {
   const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true);
     setActiveView('admin');
+    fetchOrdersOnly();
   };
 
   const handleAdminLogout = () => {
@@ -617,6 +683,9 @@ export default function App() {
               onViewStore={() => setActiveView('order')}
               onMarkAsPrinted={handleMarkOrderAsPrinted}
               isSyncing={isSyncing}
+              onRefreshOrders={handleManualRefreshOrders}
+              isRefreshing={isRefreshingOrders}
+              lastSyncedTime={lastSyncedTime}
             />
           )}
         </main>

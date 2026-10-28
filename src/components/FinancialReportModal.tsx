@@ -15,10 +15,7 @@ import {
   MessageCircle,
   Clock,
   Sparkles,
-  ChevronDown,
   Percent,
-  Layers,
-  ArrowUpRight,
   Filter
 } from 'lucide-react';
 import { OrderData, MenuItem, AppSettings } from '../types';
@@ -39,22 +36,35 @@ interface FinancialReportModalProps {
 export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
   isOpen,
   onClose,
-  orders,
-  menuItems,
+  orders = [],
+  menuItems = [],
   settings,
   onSelectOrder
 }) => {
+  // CRITICAL RULE OF HOOKS: All hooks (useState, useMemo) MUST be called unconditionally at the top!
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [excludeCancelled, setExcludeCancelled] = useState<boolean>(true);
   const [bestSellerSort, setBestSellerSort] = useState<BestSellerSort>('qty');
   const [copiedWA, setCopiedWA] = useState(false);
 
   // Custom date range state (YYYY-MM-DD)
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = useMemo(() => {
+    try {
+      return new Date().toISOString().split('T')[0];
+    } catch {
+      return '2026-10-27';
+    }
+  }, []);
   const [customStartDate, setCustomStartDate] = useState<string>(todayStr);
   const [customEndDate, setCustomEndDate] = useState<string>(todayStr);
 
-  if (!isOpen) return null;
+  const safeOrders = useMemo(() => {
+    return Array.isArray(orders) ? orders.filter(Boolean) : [];
+  }, [orders]);
+
+  const safeMenuItems = useMemo(() => {
+    return Array.isArray(menuItems) ? menuItems.filter(Boolean) : [];
+  }, [menuItems]);
 
   // Filter orders by date & status
   const filteredOrders = useMemo(() => {
@@ -72,13 +82,15 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    return orders.filter((order) => {
+    return safeOrders.filter((order) => {
+      if (!order) return false;
+
       // Status filter
       if (excludeCancelled && order.status === 'Dibatalkan') {
         return false;
       }
 
-      const orderDate = new Date(order.createdAt);
+      const orderDate = new Date(order.createdAt || Date.now());
       if (isNaN(orderDate.getTime())) return true; // fallback if date parse fails
 
       if (period === 'today') {
@@ -117,11 +129,11 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
 
       return true; // 'all'
     });
-  }, [orders, period, excludeCancelled, customStartDate, customEndDate]);
+  }, [safeOrders, period, excludeCancelled, customStartDate, customEndDate]);
 
   // Aggregate Financial KPI Metrics
   const totalRevenue = useMemo(() => {
-    return filteredOrders.reduce((sum, o) => sum + (o.totalHarga || 0), 0);
+    return filteredOrders.reduce((sum, o) => sum + (Number(o.totalHarga) || 0), 0);
   }, [filteredOrders]);
 
   const totalOrdersCount = filteredOrders.length;
@@ -141,30 +153,56 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
     >();
 
     filteredOrders.forEach((order) => {
-      if (order.items && order.items.length > 0) {
+      if (order && Array.isArray(order.items) && order.items.length > 0) {
         order.items.forEach((it) => {
-          const key = it.nama.trim().toUpperCase();
+          if (!it) return;
+          const rawName = (it.nama || '').trim();
+          const key = rawName.toUpperCase();
+          if (!key) return;
+
           const existing = itemMap.get(key);
 
           // Find category if possible
-          const matchedMenu = menuItems.find(
-            (m) => m.nama.trim().toUpperCase() === key || m.id === it.id
+          const matchedMenu = safeMenuItems.find(
+            (m) => (m.nama || '').trim().toUpperCase() === key || m.id === it.id
           );
           const kategori = matchedMenu ? matchedMenu.kategori : 'DIMSUM';
 
+          const itemQty = Number(it.qty) || 1;
+          const itemSubtotal = Number(it.subtotal) || (Number(it.harga || 0) * itemQty);
+
           if (existing) {
-            existing.qty += it.qty;
-            existing.revenue += it.subtotal || it.harga * it.qty;
+            existing.qty += itemQty;
+            existing.revenue += itemSubtotal;
           } else {
             itemMap.set(key, {
               id: it.id || key,
-              nama: it.nama,
+              nama: rawName || 'Menu Dimsum',
               kategori,
-              qty: it.qty,
-              revenue: it.subtotal || it.harga * it.qty
+              qty: itemQty,
+              revenue: itemSubtotal
             });
           }
         });
+      } else if (order && order.rincianMenu) {
+        // Fallback for legacy text rincianMenu if items array was empty
+        const key = order.rincianMenu.split('\n')[0].trim().toUpperCase();
+        if (key) {
+          const existing = itemMap.get(key);
+          const val = Number(order.totalHarga) || 0;
+          if (existing) {
+            existing.qty += 1;
+            existing.revenue += val;
+          } else {
+            itemMap.set(key, {
+              id: key,
+              nama: order.rincianMenu.split('\n')[0].trim(),
+              kategori: 'DIMSUM',
+              qty: 1,
+              revenue: val
+            });
+          }
+        }
       }
     });
 
@@ -175,7 +213,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
       list.sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
     }
     return list;
-  }, [filteredOrders, menuItems, bestSellerSort]);
+  }, [filteredOrders, safeMenuItems, bestSellerSort]);
 
   const totalPortionsSold = useMemo(() => {
     return bestSellerList.reduce((sum, i) => sum + i.qty, 0);
@@ -186,18 +224,21 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
     const map = new Map<string, { dateLabel: string; revenue: number; orderCount: number; timestamp: number }>();
 
     filteredOrders.forEach((o) => {
-      const d = new Date(o.createdAt);
+      const d = new Date(o.createdAt || Date.now());
+      if (isNaN(d.getTime())) return;
+
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const label = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
+      const ordTotal = Number(o.totalHarga) || 0;
       const curr = map.get(key);
       if (curr) {
-        curr.revenue += o.totalHarga;
+        curr.revenue += ordTotal;
         curr.orderCount += 1;
       } else {
         map.set(key, {
           dateLabel: label,
-          revenue: o.totalHarga,
+          revenue: ordTotal,
           orderCount: 1,
           timestamp: new Date(key).getTime()
         });
@@ -205,7 +246,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
     });
 
     const sorted = Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
-    const maxRev = Math.max(...sorted.map((s) => s.revenue), 1);
+    const maxRev = sorted.length > 0 ? Math.max(...sorted.map((s) => s.revenue), 1) : 1;
 
     return sorted.map((s) => ({
       ...s,
@@ -227,7 +268,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
         counts[method] = { count: 0, total: 0 };
       }
       counts[method].count += 1;
-      counts[method].total += o.totalHarga;
+      counts[method].total += Number(o.totalHarga) || 0;
     });
 
     return counts;
@@ -249,7 +290,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
     return { deliveryCount, pickupCount };
   }, [filteredOrders]);
 
-  // Get active period human readable label
+  // Active period human readable label
   const getPeriodLabel = (): string => {
     if (period === 'today') return 'Hari Ini';
     if (period === 'yesterday') return 'Kemarin';
@@ -323,6 +364,9 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
   const handlePrintReport = () => {
     window.print();
   };
+
+  // Only return null AFTER all hooks have executed!
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -723,7 +767,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
                     onClick={() => setPeriod('all')}
                     className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-lg text-xs transition cursor-pointer border border-red-200"
                   >
-                    Lihat Semua Transaksi ({orders.length})
+                    Lihat Semua Transaksi ({safeOrders.length})
                   </button>
                 </div>
               </div>
@@ -854,13 +898,13 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({
                         </span>
                       </div>
                       <p className="text-[10px] text-stone-500">
-                        {new Date(ord.createdAt).toLocaleString('id-ID')} ({ord.metodeBayar})
+                        {new Date(ord.createdAt || Date.now()).toLocaleString('id-ID')} ({ord.metodeBayar})
                       </p>
                     </div>
 
                     <div className="text-right shrink-0">
                       <p className="font-black text-red-600 text-xs">
-                        {formatRupiah(ord.totalHarga)}
+                        {formatRupiah(Number(ord.totalHarga) || 0)}
                       </p>
                       <span
                         className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full inline-block ${

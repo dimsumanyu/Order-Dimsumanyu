@@ -29,6 +29,7 @@ import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
 import { ThermalReceiptModal } from './ThermalReceiptModal';
 import { FinancialReportModal } from './FinancialReportModal';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface AdminPanelProps {
   orders: OrderData[];
@@ -46,6 +47,9 @@ interface AdminPanelProps {
   onViewStore?: () => void;
   onMarkAsPrinted: (id: string) => Promise<void>;
   isSyncing: boolean;
+  onRefreshOrders?: () => Promise<void>;
+  isRefreshing?: boolean;
+  lastSyncedTime?: Date | null;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -64,6 +68,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onViewStore,
   onMarkAsPrinted,
   isSyncing,
+  onRefreshOrders,
+  isRefreshing,
+  lastSyncedTime,
 }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'settings'>('orders');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -99,21 +106,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Stats calculation
   const totalRevenue = orders
-    .filter(o => o.status !== 'Dibatalkan')
-    .reduce((sum, o) => sum + o.totalHarga, 0);
+    .filter(o => o && o.status !== 'Dibatalkan')
+    .reduce((sum, o) => sum + (Number(o.totalHarga) || 0), 0);
 
   const today = new Date();
   const todayRevenue = orders
     .filter(o => {
+      if (!o) return false;
       if (o.status === 'Dibatalkan') return false;
+      if (!o.createdAt) return false;
       const d = new Date(o.createdAt);
+      if (isNaN(d.getTime())) return false;
       return (
         d.getDate() === today.getDate() &&
         d.getMonth() === today.getMonth() &&
         d.getFullYear() === today.getFullYear()
       );
     })
-    .reduce((sum, o) => sum + o.totalHarga, 0);
+    .reduce((sum, o) => sum + (Number(o.totalHarga) || 0), 0);
 
   const syncedCount = orders.filter(o => o.syncedToSheets).length;
   const unsyncedCount = orders.length - syncedCount;
@@ -320,25 +330,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <p className="text-[10px] uppercase font-bold text-stone-400">Total Omset</p>
-              <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+              <p className="text-[10px] uppercase font-bold text-red-600">Omset Hari Ini</p>
+              <span className="text-[9px] font-black bg-red-100 text-red-700 px-1.5 py-0.2 rounded-full">
+                Harian
+              </span>
             </div>
-            <p className="text-base sm:text-lg font-black text-red-600 mt-0.5 truncate">
-              {formatRupiah(totalRevenue)}
+            <p className="text-base sm:text-lg font-black text-red-600 mt-1 truncate">
+              {formatRupiah(todayRevenue)}
             </p>
-            <p className="text-[10px] text-stone-500 font-medium">
-              Hari Ini: <b className="text-stone-800">{formatRupiah(todayRevenue)}</b>
+            <p className="text-[10px] text-stone-500 font-medium mt-0.5">
+              Reset otomatis setiap hari baru
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => setShowFinanceModal(true)}
-            className="mt-2 w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-[10.5px] py-1.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
-            title="Buka Dashboard Laporan Keuangan, Filter Periode & Menu Best Seller"
+            className="mt-2 w-full bg-stone-900 hover:bg-stone-800 active:scale-95 text-white font-black text-[10.5px] py-1.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+            title="Buka Dashboard Laporan Keuangan (Filter Hari, Minggu, Bulan, Best Seller)"
           >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Laporan Keuangan</span>
+            <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+            <span>Semua Laporan</span>
           </button>
         </div>
 
@@ -511,7 +523,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {onRefreshOrders && (
+                  <button
+                    type="button"
+                    onClick={onRefreshOrders}
+                    disabled={isRefreshing}
+                    className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+                    title="Tarik pesanan terbaru dari server dan sinkronkan dengan Google Sheets"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-red-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshing ? 'Menyinkronkan...' : 'Segarkan Pesanan'}</span>
+                  </button>
+                )}
+
                 <button
                   onClick={onSyncAll}
                   disabled={isSyncing || unsyncedCount === 0}
@@ -531,6 +556,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <span>Export CSV</span>
                 </a>
               </div>
+            </div>
+
+            {/* Live Sync Status Banner */}
+            <div className="flex items-center justify-between text-[11px] text-stone-500 pt-0.5 px-0.5">
+              <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                <span>Sinkronisasi Otomatis Antar Device Aktif</span>
+              </span>
+              {lastSyncedTime && (
+                <span className="text-[10px] text-stone-400">
+                  Update: {lastSyncedTime.toLocaleTimeString('id-ID')}
+                </span>
+              )}
             </div>
 
             {/* Status pills filter */}
@@ -1107,13 +1145,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       />
 
       {/* 📊 MODAL DASHBOARD LAPORAN KEUANGAN & BEST SELLER */}
-      <FinancialReportModal
-        isOpen={showFinanceModal}
-        onClose={() => setShowFinanceModal(false)}
-        orders={orders}
-        menuItems={menuItems}
-        settings={settings}
-      />
+      {showFinanceModal && (
+        <ErrorBoundary fallbackTitle="Laporan Keuangan Sementara Tidak Dapat Dimuat">
+          <FinancialReportModal
+            isOpen={showFinanceModal}
+            onClose={() => setShowFinanceModal(false)}
+            orders={orders}
+            menuItems={menuItems}
+            settings={settings}
+          />
+        </ErrorBoundary>
+      )}
     </div>
   );
 };

@@ -370,6 +370,16 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify(menuData))
       .setMimeType(ContentService.MimeType.JSON);
   }
+
+  // 6. Ambil seluruh data pesanan dari sheet 'Pesanan' (Sinkronisasi Antar Device)
+  if (action === 'getOrders' || action === 'getPesanan' || action === 'fetchOrders') {
+    var pesananList = getPesananFromSheet();
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      orders: pesananList,
+      count: pesananList.length
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
   
   // 6. Status ping
   return ContentService.createTextOutput(JSON.stringify({
@@ -500,5 +510,46 @@ function getMenuData() {
     });
   }
   return menu;
+}
+
+function getPesananFromSheet() {
+  var ss = getTargetSpreadsheet();
+  var sheet = ss.getSheetByName("Pesanan") || ss.getSheetByName("Orders");
+  if (!sheet) return [];
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  var orders = [];
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var orderId = String(row[1] || "").trim();
+    if (!orderId) continue;
+
+    var rawTotal = row[9];
+    var totalHarga = typeof rawTotal === "number"
+      ? rawTotal
+      : parseInt(String(rawTotal).replace(/[^0-9]/g, ""), 10) || 0;
+
+    var dateVal = row[0];
+    var createdAtStr = dateVal instanceof Date ? dateVal.toISOString() : String(dateVal || new Date().toISOString());
+
+    orders.push({
+      id: orderId,
+      createdAt: createdAtStr,
+      nama: String(row[2] || "Pelanggan").trim(),
+      phone: String(row[3] || "").replace(/^'/, "").trim(),
+      opsiPengiriman: String(row[4] || "Diantar ke Alamat").trim(),
+      alamat: String(row[5] || "").trim(),
+      metodeBayar: String(row[6] || "QRIS").trim(),
+      catatan: String(row[7] || "").trim(),
+      rincianMenu: String(row[8] || "").trim(),
+      totalHarga: totalHarga,
+      status: String(row[10] || "Menunggu payment").trim(),
+      syncedToSheets: true
+    });
+  }
+
+  // Urutkan dari yang terbaru
+  return orders.reverse();
 }
 `;
