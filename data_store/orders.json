@@ -1,5 +1,1088 @@
 [
   {
+    "id": "21/10/2026 14:13:46",
+    "createdAt": "DSM-20261021-141346",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil Sendiri",
+    "alamat": "KUKUS ORIGINAL ISI 6 PCS (1x), KUKUS MENTAI ISI 6 PCS (1x)",
+    "metodeBayar": "57000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 14:24:22",
+    "createdAt": "DSM-20261021-142422",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil Sendiri",
+    "alamat": "KUKUS ORIGINAL ISI 6 PCS (1x)\nKUKUS MENTAI ISI 6 PCS (1x)\nKUKUS MENTAI ISI 8 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "metodeBayar": "135000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 14:47:22",
+    "createdAt": "DSM-20261021-144722",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 14:54:48",
+    "createdAt": "DSM-20261021-145448",
+    "nama": "abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil ditoko",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 15:07:32",
+    "createdAt": "DSM-20261021-150732",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 15:11:40",
+    "createdAt": "DSM-20261021-151140",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 15:13:40",
+    "createdAt": "DSM-20261021-151340",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 16:17:55",
+    "createdAt": "DSM-20261021-161755",
+    "nama": "Aditya",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nKUKUS MENTAI ISI 8 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "metodeBayar": "110000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 16:20:32",
+    "createdAt": "DSM-20261021-162032",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 16:21:32",
+    "createdAt": "DSM-20261021-162132",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nKUKUS MENTAI ISI 8 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "metodeBayar": "110000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 16:24:45",
+    "createdAt": "DSM-20261021-162445",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 16:27:32",
+    "createdAt": "DSM-20261021-162732",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nKUKUS MENTAI ISI 8 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "metodeBayar": "110000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 16:48:59",
+    "createdAt": "DSM-20261021-164859",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "21/10/2026 18:38:54",
+    "createdAt": "DSM-20261021-183854",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil sendiri",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nKUKUS MENTAI ISI 8 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "metodeBayar": "110000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "22/10/2026 08:45:55",
+    "createdAt": "DSM-20261022-084555",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "22/10/2026 10:49:25",
+    "createdAt": "DSM-20261022-104925",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "ambil",
+    "alamat": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "metodeBayar": "101000",
+    "catatan": "QRIS",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "23/10/2026 14:07:26",
+    "createdAt": "DSM-20261023-140726",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "catatan": "101000",
+    "rincianMenu": "QRIS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "QRIS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "23/10/2026 14:10:12",
+    "createdAt": "DSM-20261023-141012",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "catatan": "101000",
+    "rincianMenu": "QRIS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "QRIS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "23/10/2026 14:15:08",
+    "createdAt": "DSM-20261023-141508",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "catatan": "101000",
+    "rincianMenu": "QRIS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "QRIS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "23/10/2026 14:15:37",
+    "createdAt": "DSM-20261023-141537",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "catatan": "101000",
+    "rincianMenu": "QRIS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "QRIS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "23/10/2026 14:20:36",
+    "createdAt": "DSM-20261023-142036",
+    "nama": "Abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS\n(3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "catatan": "101000",
+    "rincianMenu": "QRIS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "QRIS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "23/10/2026 15:07:59",
+    "createdAt": "DSM-20261023-150759",
+    "nama": "Abimanyu",
+    "phone": "085555222555",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "KUKUS MENTAI ISI 6 PCS (1x)\nKUKUS MENTAI ISI 8 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "catatan": "110000",
+    "rincianMenu": "QRIS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "QRIS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-TEST-001",
+    "createdAt": "2026-10-24T02:53:18.000Z",
+    "nama": "Tes Pelanggan",
+    "phone": "081234567890",
+    "opsiPengiriman": "Diantar ke Alamat",
+    "alamat": "Jl. Mawar No. 12",
+    "metodeBayar": "QRIS",
+    "catatan": "Pesanan uji coba",
+    "rincianMenu": "KUKUS MENTAI ISI 6 PCS (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 32000,
+    "status": "Baru",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261024-105334",
+    "createdAt": "2026-10-24T02:53:34.000Z",
+    "nama": "Tes Pelanggan",
+    "phone": "08123456789",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Outlet",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "Kukus Ori (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "Kukus Ori (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 25000,
+    "status": "Baru",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261024-025520",
+    "createdAt": "2026-10-24T02:55:21.000Z",
+    "nama": "garvi ganteng",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)\nMIX MENTAI ISI 6 PCS (3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "GORENG MENTAI ISI 5 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-2",
+        "nama": "MIX MENTAI ISI 6 PCS (3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai) (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 101000,
+    "status": "Baru",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261024-025641",
+    "createdAt": "2026-10-24T02:56:43.000Z",
+    "nama": "adit",
+    "phone": "088845474455",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "Tunai (COD / Ambil di Tempat)",
+    "catatan": "-",
+    "rincianMenu": "KUKUS MENTAI PREMIUM ISI 16 PCS (1x)\nMINI MIX PLATTER ISI 8 PCS (2 Kukus Ori + 2 Kukus Mentai + 2 Pcs Goreng Ori + 2 Pcs Goreng Mentai) (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI PREMIUM ISI 16 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "MINI MIX PLATTER ISI 8 PCS (2 Kukus Ori + 2 Kukus Mentai + 2 Pcs Goreng Ori + 2 Pcs Goreng Mentai) (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 176000,
+    "status": "Baru",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261024-025745",
+    "createdAt": "2026-10-24T02:57:46.000Z",
+    "nama": "aditds",
+    "phone": "088854485555",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "Tunai (COD / Ambil di Tempat)",
+    "catatan": "-",
+    "rincianMenu": "MIX MENTAI ISI 8 PCS (4 Pcs Kukus Mentai + 4 Pcs Goreng Mentai) (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "MIX MENTAI ISI 8 PCS (4 Pcs Kukus Mentai + 4 Pcs Goreng Mentai) (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 47000,
+    "status": "Baru",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261024-030739",
+    "createdAt": "2026-10-24T03:07:40.000Z",
+    "nama": "aditya",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "Transfer Bank",
+    "catatan": "-",
+    "rincianMenu": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "GORENG MENTAI ISI 5 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 67000,
+    "status": "Baru",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261026-144905",
+    "createdAt": "2026-10-26T06:49:06.000Z",
+    "nama": "ASDASF",
+    "phone": "ASFASF",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "QRIS",
+    "catatan": "ASFASF",
+    "rincianMenu": "KUKUS MENTAI ISI 6 PCS (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 32000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261026-145249",
+    "createdAt": "2026-10-26T06:52:51.000Z",
+    "nama": "Adit",
+    "phone": "0854245464",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "KUKUS MENTAI ISI 6 PCS (1x)\nKUKUS MENTAI ISI 8 PCS (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "KUKUS MENTAI ISI 8 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 75000,
+    "status": "Pesanan Selesai",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261026-144705",
+    "createdAt": "2026-10-26T06:58:03.000Z",
+    "nama": "safra",
+    "phone": "asfafa",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "asfafsa",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "MIX KUKUS FAMILY ISI 16 PCS (8 Pcs Kukus Ori + 8 Pcs Kukus Mentai) (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "MIX KUKUS FAMILY ISI 16 PCS (8 Pcs Kukus Ori + 8 Pcs Kukus Mentai) (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 82000,
+    "status": "Pesanan selesai",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261026-150147",
+    "createdAt": "2026-10-26T07:01:45.000Z",
+    "nama": "adit",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "Tunai (COD / Ambil di Tempat)",
+    "catatan": "-",
+    "rincianMenu": "MIX GORENG FAMILY ISI 16 PCS (8 Pcs Goreng Ori + 8 Pcs Goreng Mentai) (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "MIX GORENG FAMILY ISI 16 PCS (8 Pcs Goreng Ori + 8 Pcs Goreng Mentai) (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 100000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261026-150553",
+    "createdAt": "2026-10-26T07:05:52.000Z",
+    "nama": "adit",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "Transfer Bank",
+    "catatan": "-",
+    "rincianMenu": "MIX ORIGINAL ISI 6 PCS (3 Pcs Kukus Ori + 3 Pcs Goreng Ori) (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "MIX ORIGINAL ISI 6 PCS (3 Pcs Kukus Ori + 3 Pcs Goreng Ori) (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 28000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261026-163338",
+    "createdAt": "2026-10-26T08:47:20.000Z",
+    "nama": "abimanyu",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "GORENG MENTAI ISI 5 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 67000,
+    "status": "Pesanan selesai",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261026-180814",
+    "createdAt": "2026-10-26T10:09:26.000Z",
+    "nama": "Garvi",
+    "phone": "085132425262",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "KUKUS MENTAI ISI 6 PCS (1x)\nGORENG MENTAI ISI 5 PCS (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "GORENG MENTAI ISI 5 PCS (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 67000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261027-093016",
+    "createdAt": "2026-10-27T01:30:18.000Z",
+    "nama": "adit",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "2x KUKUS MENTAI ISI 6 PCS\n2x GORENG MENTAI ISI 5 PCS\n1x MIX MENTAI ISI 6 PCS (3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai)\n2x MIX KUKUS ISI 6 PCS (3 Pcs Kukus Ori + 3 Pcs Kukus Mentai)\n2x MIX MENTAI ISI 8 PCS (4 Pcs Kukus Mentai + 4 Pcs Goreng Mentai)\n2x MIX ORIGINAL ISI 8 PCS (4 Pcs Kukus Ori + 4 Pcs Goreng Ori)\n1x KUKUS MENTAI PREMIUM ISI 16 PCS\n2x MIX GORENG FAMILY ISI 16 PCS (8 Pcs Goreng Ori + 8 Pcs Goreng Mentai)\n2x MINI MIX PLATTER ISI 8 PCS (2 Kukus Ori + 2 Kukus Mentai + 2 Pcs Goreng Ori + 2 Pcs Goreng Mentai)\n1x MIX MENTAI FAMILY ISI 16 PCS (8 Pcs Kukus Mentai + 8 Pcs Goreng Mentai)\n2x FAMILY MIX PLATTER ISI 16 PCS (4 Kukus Ori + 4 Kukus Mentai + 4 Pcs Goreng Ori + 4 Pcs Goreng Mentai)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "GORENG MENTAI ISI 5 PCS",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-2",
+        "nama": "MIX MENTAI ISI 6 PCS (3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-3",
+        "nama": "MIX KUKUS ISI 6 PCS (3 Pcs Kukus Ori + 3 Pcs Kukus Mentai)",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-4",
+        "nama": "MIX MENTAI ISI 8 PCS (4 Pcs Kukus Mentai + 4 Pcs Goreng Mentai)",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-5",
+        "nama": "MIX ORIGINAL ISI 8 PCS (4 Pcs Kukus Ori + 4 Pcs Goreng Ori)",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-6",
+        "nama": "KUKUS MENTAI PREMIUM ISI 16 PCS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-7",
+        "nama": "MIX GORENG FAMILY ISI 16 PCS (8 Pcs Goreng Ori + 8 Pcs Goreng Mentai)",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-8",
+        "nama": "MINI MIX PLATTER ISI 8 PCS (2 Kukus Ori + 2 Kukus Mentai + 2 Pcs Goreng Ori + 2 Pcs Goreng Mentai)",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-9",
+        "nama": "MIX MENTAI FAMILY ISI 16 PCS (8 Pcs Kukus Mentai + 8 Pcs Goreng Mentai)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-10",
+        "nama": "FAMILY MIX PLATTER ISI 16 PCS (4 Kukus Ori + 4 Kukus Mentai + 4 Pcs Goreng Ori + 4 Pcs Goreng Mentai)",
+        "qty": 2,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 1088000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261027-102412",
+    "createdAt": "2026-10-27T02:24:14.000Z",
+    "nama": "Garvi",
+    "phone": "081213141516",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "1x KUKUS MENTAI ISI 6 PCS\n1x KUKUS ORIGINAL ISI 8 PCS\n1x GORENG MENTAI ISI 5 PCS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS MENTAI ISI 6 PCS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "KUKUS ORIGINAL ISI 8 PCS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-2",
+        "nama": "GORENG MENTAI ISI 5 PCS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 100000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261028-001642",
+    "createdAt": "2026-10-28T00:16:43.000Z",
+    "nama": "Test User",
+    "phone": "08123456789",
+    "opsiPengiriman": "Diantar ke Alamat",
+    "alamat": "-",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "KUKUS ORIGINAL (1x)",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS ORIGINAL (1x)",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 25000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261028-083051",
+    "createdAt": "2026-10-28T00:30:53.000Z",
+    "nama": "Adit",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "Tunai (COD / Ambil di Tempat)",
+    "catatan": "-",
+    "rincianMenu": "1x KUKUS ORIGINAL ISI 6 PCS\n1x KUKUS MENTAI ISI 6 PCS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS ORIGINAL ISI 6 PCS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      },
+      {
+        "id": "item-1",
+        "nama": "KUKUS MENTAI ISI 6 PCS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 57000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261028-083825",
+    "createdAt": "2026-10-28T00:38:25.000Z",
+    "nama": "-",
+    "phone": "-",
+    "opsiPengiriman": "Diantar ke Alamat",
+    "alamat": "-",
+    "metodeBayar": "QRIS",
+    "catatan": "-",
+    "rincianMenu": "-",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "-",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 0,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
+    "id": "DAN-20261028-092006",
+    "createdAt": "2026-10-28T01:20:08.000Z",
+    "nama": "Ads",
+    "phone": "085163720509",
+    "opsiPengiriman": "Ambil di Outlet",
+    "alamat": "Ambil langsung di Outlet DIMSUMANYU",
+    "metodeBayar": "Tunai (COD / Ambil di Tempat)",
+    "catatan": "-",
+    "rincianMenu": "1x KUKUS ORIGINAL ISI 6 PCS",
+    "items": [
+      {
+        "id": "item-0",
+        "nama": "KUKUS ORIGINAL ISI 6 PCS",
+        "qty": 1,
+        "harga": 0,
+        "subtotal": 0
+      }
+    ],
+    "totalHarga": 25000,
+    "status": "Menunggu payment",
+    "syncedToSheets": true
+  },
+  {
     "id": "DAN-20261028-002549",
     "nama": "Budi Santoso",
     "phone": "081298765432",
