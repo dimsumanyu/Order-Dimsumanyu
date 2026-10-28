@@ -34,7 +34,18 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const saved = localStorage.getItem('dimsumanyu_settings');
-      return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...INITIAL_SETTINGS,
+          ...parsed,
+          appsScriptUrl:
+            parsed.appsScriptUrl && parsed.appsScriptUrl.trim() !== ''
+              ? parsed.appsScriptUrl
+              : INITIAL_SETTINGS.appsScriptUrl,
+        };
+      }
+      return INITIAL_SETTINGS;
     } catch {
       return INITIAL_SETTINGS;
     }
@@ -73,9 +84,10 @@ export default function App() {
 
   // Helper to fetch directly from Google Apps Script if server endpoint fails or runs on static Vercel
   const fetchDirectFromGoogleSheets = async (): Promise<OrderData[] | null> => {
-    if (!settings.appsScriptUrl) return null;
+    const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+    if (!targetUrl) return null;
     try {
-      const url = `${settings.appsScriptUrl}?action=getOrders&_t=${Date.now()}`;
+      const url = `${targetUrl}?action=getOrders&_t=${Date.now()}`;
       const res = await fetch(url, { redirect: 'follow' });
       const text = await res.text();
       let data: any = null;
