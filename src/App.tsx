@@ -67,10 +67,37 @@ export default function App() {
   const [completedOrder, setCompletedOrder] = useState<OrderData | null>(null);
   const [showSheetsGuide, setShowSheetsGuide] = useState<boolean>(false);
 
-  // Order Tracking States
+  // Order Tracking States (Customer device history separated from Admin all-orders)
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<OrderData | null>(null);
   const [showTrackingModal, setShowTrackingModal] = useState<boolean>(false);
   const [showTrackSearchModal, setShowTrackSearchModal] = useState<boolean>(false);
+  const [myOrderIds, setMyOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_my_order_ids');
+      if (saved) return JSON.parse(saved);
+      return [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleAddMyOrderId = (orderId: string) => {
+    setMyOrderIds(prev => {
+      if (prev.includes(orderId)) return prev;
+      const next = [orderId, ...prev];
+      try {
+        localStorage.setItem('dimsumanyu_my_order_ids', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const handleClearMyOrders = () => {
+    setMyOrderIds([]);
+    try {
+      localStorage.removeItem('dimsumanyu_my_order_ids');
+    } catch {}
+  };
 
   // Admin security state
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
@@ -522,7 +549,16 @@ export default function App() {
         return updated;
       });
 
-      // 4. Set completed order to trigger OrderSuccessModal
+      // 4. Save to device's "Pesanan Saya" (history for this customer/browser)
+      setMyOrderIds(prev => {
+        const updated = [finalOrder.id, ...prev.filter(id => id !== finalOrder.id)];
+        try {
+          localStorage.setItem('dimsumanyu_my_order_ids', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      // 5. Set completed order to trigger OrderSuccessModal
       setCompletedOrder(finalOrder);
       setCart({});
       setCurrentStep(1);
@@ -944,11 +980,14 @@ export default function App() {
         onUpdateStatus={handleUpdateOrderStatus}
       />
 
-      {/* Customer Order Search Modal */}
+      {/* Customer Order Search Modal (Only shows customer's own device orders; Admin retains all orders) */}
       <TrackOrderSearchModal
         isOpen={showTrackSearchModal}
         onClose={() => setShowTrackSearchModal(false)}
         orders={orders}
+        myOrderIds={myOrderIds}
+        onAddMyOrderId={handleAddMyOrderId}
+        onClearMyOrders={handleClearMyOrders}
         onSelectOrder={(order) => {
           setShowTrackSearchModal(false);
           setSelectedOrderForTracking(order);
