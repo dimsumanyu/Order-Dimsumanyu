@@ -163,7 +163,31 @@ async function startServer() {
     res.json({ success: true, menu });
   });
 
-  app.get('/api/orders', (_req, res) => {
+  app.get('/api/orders', async (_req, res) => {
+    try {
+      const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+      if (targetUrl) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const sheetsRes = await fetch(`${targetUrl}?action=getOrders&_t=${Date.now()}`, {
+          signal: controller.signal,
+          redirect: 'follow',
+        }).catch(() => null);
+        clearTimeout(timeout);
+        if (sheetsRes && sheetsRes.ok) {
+          const json: any = await sheetsRes.json().catch(() => null);
+          if (json && json.success && Array.isArray(json.orders)) {
+            const remoteOrders = json.orders;
+            const remoteIds = new Set(remoteOrders.map((o: any) => o.id));
+            const localOnly = orders.filter((o: any) => !remoteIds.has(o.id) && o.id.startsWith('DAN-'));
+            orders = [...remoteOrders, ...localOnly];
+            saveJSON(ORDERS_FILE, orders);
+          }
+        }
+      }
+    } catch {
+      // fallback to cached orders
+    }
     res.json({ success: true, orders });
   });
 

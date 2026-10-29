@@ -162,32 +162,32 @@ export default function App() {
   // Dedicated real-time order refresher across all devices (iPhone 13, iPhone 15, desktop, etc.)
   const fetchOrdersOnly = async () => {
     try {
-      let remoteOrders: OrderData[] | null = null;
+      // 1. ALWAYS prioritize direct live fetch from Google Sheets (Central Source of Truth across all devices)
+      const sheetOrders = await fetchDirectFromGoogleSheets();
+      if (sheetOrders && Array.isArray(sheetOrders)) {
+        setOrders(prev => {
+          const remoteIds = new Set(sheetOrders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
+          const merged = enrichOrdersWithMenuPricing([...sheetOrders, ...localOnly], menuItems);
+          try {
+            localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+        setLastSyncedTime(new Date());
+        return;
+      }
 
-      // 1. Try fetching from /api/orders (supported in Node and Vercel serverless functions)
+      // 2. Fallback only if Google Sheets direct was unreachable (e.g. offline)
       const resOrders = await fetch('/api/orders')
         .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
         .catch(() => null);
 
       if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
-        remoteOrders = resOrders.orders;
-        if (resOrders.needsDeployment) {
-          setSheetsScriptNeedsUpdate(true);
-        } else {
-          setSheetsScriptNeedsUpdate(false);
-        }
-      }
-
-      // 2. If /api/orders returned nothing or running on static Vercel, fetch directly from Google Sheets
-      if (!remoteOrders) {
-        remoteOrders = await fetchDirectFromGoogleSheets();
-      }
-
-      if (remoteOrders && Array.isArray(remoteOrders)) {
         setOrders(prev => {
-          const remoteIds = new Set(remoteOrders!.map((o: OrderData) => o.id));
+          const remoteIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
           const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
-          const merged = enrichOrdersWithMenuPricing([...remoteOrders!, ...localOnly], menuItems);
+          const merged = enrichOrdersWithMenuPricing([...resOrders.orders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -239,11 +239,8 @@ export default function App() {
   const fetchData = async () => {
     try {
       // 1. Try fetching from server if running in fullstack mode
-      const [resMenu, resOrders, resSettings] = await Promise.all([
+      const [resMenu, resSettings] = await Promise.all([
         fetch('/api/menu')
-          .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
-          .catch(() => null),
-        fetch('/api/orders')
           .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
           .catch(() => null),
         fetch('/api/settings')
@@ -256,11 +253,13 @@ export default function App() {
         localStorage.setItem('dimsumanyu_menu', JSON.stringify(resMenu.menu));
       }
 
-      if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
+      // 2. Primary: Fetch directly from Google Sheets
+      const directOrders = await fetchDirectFromGoogleSheets();
+      if (directOrders && Array.isArray(directOrders)) {
         setOrders(prev => {
-          const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
+          const serverIds = new Set(directOrders.map((o: OrderData) => o.id));
           const localOnly = prev.filter(p => p && !serverIds.has(p.id));
-          const merged = enrichOrdersWithMenuPricing([...resOrders.orders, ...localOnly], menuItems);
+          const merged = enrichOrdersWithMenuPricing([...directOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -268,13 +267,15 @@ export default function App() {
         });
         setLastSyncedTime(new Date());
       } else {
-        // Fallback: fetch directly from Google Sheets
-        const directOrders = await fetchDirectFromGoogleSheets();
-        if (directOrders && Array.isArray(directOrders)) {
+        // Fallback: query /api/orders
+        const resOrders = await fetch('/api/orders')
+          .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
+          .catch(() => null);
+        if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
           setOrders(prev => {
-            const serverIds = new Set(directOrders.map((o: OrderData) => o.id));
+            const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
             const localOnly = prev.filter(p => p && !serverIds.has(p.id));
-            const merged = enrichOrdersWithMenuPricing([...directOrders, ...localOnly], menuItems);
+            const merged = enrichOrdersWithMenuPricing([...resOrders.orders, ...localOnly], menuItems);
             try {
               localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
             } catch {}
@@ -490,34 +491,20 @@ export default function App() {
         syncedToSheets: false,
       };
 
-      // 1. Try sending to Node backend if available (dev / fullstack mode)
-      let backendSuccess = false;
+      // 1. ALWAYS dispatch order directly to Google Apps Script (Single Cloud Source of Truth)
+      await sendDirectToAppsScript(finalOrder);
+      finalOrder.syncedToSheets = true;
+      finalOrder.sheetsSyncTimestamp = new Date().toISOString();
+
+      // 2. Also notify Node backend if running in fullstack mode
       try {
-        const res = await fetch('/api/orders', {
+        await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(finalOrder),
         });
-
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await res.json();
-            if (data.success && data.order) {
-              finalOrder = data.order;
-              backendSuccess = true;
-            }
-          }
-        }
       } catch (backendErr) {
-        console.warn('Backend server not present (e.g. static hosting on Vercel), using direct client sync.');
-      }
-
-      // 2. If backend was not reached or failed (e.g. Vercel static deployment), sync directly from browser to Google Apps Script
-      if (!backendSuccess) {
-        await sendDirectToAppsScript(finalOrder);
-        finalOrder.syncedToSheets = true;
-        finalOrder.sheetsSyncTimestamp = new Date().toISOString();
+        // static hosting fallback
       }
 
       // 3. Persist order in local state and localStorage
