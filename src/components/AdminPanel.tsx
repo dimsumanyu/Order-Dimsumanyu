@@ -870,15 +870,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     {/* Order Items Breakdown */}
                     <div className="bg-stone-50 rounded-xl p-2.5 text-xs text-stone-700 divide-y divide-stone-100">
                       {order.items && order.items.length > 0 ? (
-                        order.items.map((it, idx) => (
-                          <div key={idx} className="py-1 first:pt-0 last:pb-0 flex justify-between items-center">
-                            <span className="font-medium text-stone-800 flex items-center gap-1.5">
-                              <span className="text-stone-400 font-bold select-none">•</span>
-                              <span><b className="font-extrabold text-stone-900">{it.qty}x</b> {it.nama}</span>
-                            </span>
-                            <span className="font-semibold text-stone-900">{formatRupiah(it.subtotal)}</span>
-                          </div>
-                        ))
+                        order.items.map((it, idx) => {
+                          let itemSubtotal = it.subtotal || 0;
+                          let itemPrice = it.harga || 0;
+                          if (itemSubtotal === 0 || itemPrice === 0) {
+                            const match = menuItems.find(
+                              (m) =>
+                                m.nama.toLowerCase().trim() === it.nama.toLowerCase().trim() ||
+                                it.nama.toLowerCase().includes(m.nama.toLowerCase()) ||
+                                m.nama.toLowerCase().includes(it.nama.toLowerCase())
+                            );
+                            if (match) {
+                              itemPrice = match.harga;
+                              itemSubtotal = match.harga * (it.qty || 1);
+                            } else if (order.items && order.items.length === 1 && order.totalHarga > 0) {
+                              itemSubtotal = order.totalHarga;
+                              itemPrice = Math.round(order.totalHarga / (it.qty || 1));
+                            }
+                          }
+                          return (
+                            <div key={idx} className="py-1 first:pt-0 last:pb-0 flex justify-between items-center">
+                              <span className="font-medium text-stone-800 flex items-center gap-1.5">
+                                <span className="text-stone-400 font-bold select-none">•</span>
+                                <span><b className="font-extrabold text-stone-900">{it.qty}x</b> {it.nama}</span>
+                                {it.qty > 1 && itemPrice > 0 && (
+                                  <span className="text-[10px] text-stone-500 font-normal">
+                                    (@ {formatRupiah(itemPrice)})
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-semibold text-stone-900">{formatRupiah(itemSubtotal)}</span>
+                            </div>
+                          );
+                        })
                       ) : (
                         <p className="whitespace-pre-line text-[11px] text-stone-600">
                           {order.rincianMenu}
@@ -1230,6 +1254,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           }
         }}
         settings={settings}
+        menuItems={menuItems}
       />
 
       {/* 📊 MODAL DASHBOARD LAPORAN KEUANGAN & BEST SELLER */}

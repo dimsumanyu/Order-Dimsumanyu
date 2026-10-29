@@ -82,6 +82,55 @@ export default function App() {
   const [sheetsScriptNeedsUpdate, setSheetsScriptNeedsUpdate] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
+  // Helper to ensure all order items have accurate unit prices & subtotals (fixes item price 0 from sheet rows)
+  const enrichOrdersWithMenuPricing = (ordersList: OrderData[], currentMenu: MenuItem[]): OrderData[] => {
+    if (!ordersList || !Array.isArray(ordersList)) return [];
+    return ordersList.map((order) => {
+      if (!order || !order.items || order.items.length === 0) return order;
+      const updatedItems = order.items.map((it) => {
+        let harga = it.harga || 0;
+        let subtotal = it.subtotal || 0;
+        if (harga === 0 || subtotal === 0) {
+          const match = currentMenu.find(
+            (m) =>
+              m.nama.toLowerCase().trim() === it.nama.toLowerCase().trim() ||
+              it.nama.toLowerCase().includes(m.nama.toLowerCase()) ||
+              m.nama.toLowerCase().includes(it.nama.toLowerCase())
+          );
+          if (match) {
+            harga = match.harga;
+            subtotal = match.harga * (it.qty || 1);
+          } else if (order.items && order.items.length === 1 && order.totalHarga > 0) {
+            subtotal = order.totalHarga;
+            harga = Math.round(order.totalHarga / (it.qty || 1));
+          }
+        }
+        return {
+          ...it,
+          harga,
+          subtotal: subtotal || (harga * (it.qty || 1)),
+        };
+      });
+      return {
+        ...order,
+        items: updatedItems,
+      };
+    });
+  };
+
+  // Auto-repair & enrich existing orders whenever menuItems are loaded or updated
+  useEffect(() => {
+    if (menuItems.length > 0) {
+      setOrders((prev) => {
+        const enriched = enrichOrdersWithMenuPricing(prev, menuItems);
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(enriched));
+        } catch {}
+        return enriched;
+      });
+    }
+  }, [menuItems]);
+
   // Helper to fetch directly from Google Apps Script if server endpoint fails or runs on static Vercel
   const fetchDirectFromGoogleSheets = async (): Promise<OrderData[] | null> => {
     const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
@@ -138,7 +187,7 @@ export default function App() {
         setOrders(prev => {
           const remoteIds = new Set(remoteOrders!.map((o: OrderData) => o.id));
           const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
-          const merged = [...remoteOrders!, ...localOnly];
+          const merged = enrichOrdersWithMenuPricing([...remoteOrders!, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -164,7 +213,7 @@ export default function App() {
         setOrders(prev => {
           const remoteIds = new Set(sheetOrders.map((o: OrderData) => o.id));
           const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
-          const merged = [...sheetOrders, ...localOnly];
+          const merged = enrichOrdersWithMenuPricing([...sheetOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -211,7 +260,7 @@ export default function App() {
         setOrders(prev => {
           const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
           const localOnly = prev.filter(p => p && !serverIds.has(p.id));
-          const merged = [...resOrders.orders, ...localOnly];
+          const merged = enrichOrdersWithMenuPricing([...resOrders.orders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -225,7 +274,7 @@ export default function App() {
           setOrders(prev => {
             const serverIds = new Set(directOrders.map((o: OrderData) => o.id));
             const localOnly = prev.filter(p => p && !serverIds.has(p.id));
-            const merged = [...directOrders, ...localOnly];
+            const merged = enrichOrdersWithMenuPricing([...directOrders, ...localOnly], menuItems);
             try {
               localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
             } catch {}
@@ -419,7 +468,7 @@ export default function App() {
         };
       });
 
-      const rincianText = orderItems.map(it => `${it.qty}x ${it.nama}`).join('\n');
+      const rincianText = orderItems.map(it => `${it.qty}x ${it.nama} (${formatRupiah(it.subtotal)})`).join('\n');
 
       const now = new Date();
       const pad = (n: number) => n.toString().padStart(2, '0');

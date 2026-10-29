@@ -573,12 +573,18 @@ function getPesananFromSheet() {
         if (match) {
           var qty = parseInt(match[1], 10) || 1;
           var itemNama = match[2].trim();
+          var itemHarga = 0;
+          var priceMatch = itemNama.match(/\(?Rp\.?\s*([0-9.,]+)\)?/i);
+          if (priceMatch) {
+            itemHarga = parseInt(priceMatch[1].replace(/[^0-9]/g, ""), 10) || 0;
+            itemNama = itemNama.replace(/\(?Rp\.?\s*[0-9.,]+\)?/i, "").trim();
+          }
           parsedItems.push({
             id: 'item-' + l,
             nama: itemNama,
             qty: qty,
-            harga: 0,
-            subtotal: 0
+            harga: itemHarga,
+            subtotal: itemHarga * qty
           });
         } else {
           parsedItems.push({

@@ -15,7 +15,7 @@ import {
   Radio,
   ExternalLink
 } from 'lucide-react';
-import { OrderData, AppSettings } from '../types';
+import { OrderData, AppSettings, MenuItem } from '../types';
 import { formatRupiah } from '../utils/whatsapp';
 import {
   PrinterConfig,
@@ -33,6 +33,7 @@ interface ThermalReceiptModalProps {
   onClose: () => void;
   onMarkAsPrinted: (orderId: string) => Promise<void>;
   settings?: AppSettings;
+  menuItems?: MenuItem[];
 }
 
 export type ReceiptMarkerStyle = 'bullet' | 'dash' | 'box' | 'none';
@@ -43,6 +44,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   onClose,
   onMarkAsPrinted,
   settings,
+  menuItems,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -95,6 +97,31 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       })
     : null;
 
+  // Helper to resolve accurate unit price & subtotal even if parsed from sheet with 0
+  const getItemPricing = (it: { id?: string; nama: string; qty: number; harga?: number; subtotal?: number }) => {
+    let harga = it.harga || 0;
+    let subtotal = it.subtotal || 0;
+    if (harga === 0 || subtotal === 0) {
+      if (menuItems && menuItems.length > 0) {
+        const match = menuItems.find(
+          (m) =>
+            m.nama.toLowerCase().trim() === it.nama.toLowerCase().trim() ||
+            it.nama.toLowerCase().includes(m.nama.toLowerCase()) ||
+            m.nama.toLowerCase().includes(it.nama.toLowerCase())
+        );
+        if (match) {
+          harga = match.harga;
+          subtotal = match.harga * (it.qty || 1);
+        }
+      }
+      if ((subtotal === 0 || harga === 0) && order?.items && order.items.length === 1 && order.totalHarga > 0) {
+        subtotal = order.totalHarga;
+        harga = Math.round(order.totalHarga / (it.qty || 1));
+      }
+    }
+    return { harga, subtotal: subtotal || (harga * (it.qty || 1)) };
+  };
+
   // Generate plain text receipt for mobile Bluetooth printing apps (RawBT, Bluetooth POS, etc.)
   const generateRawReceiptText = (): string => {
     const divider = '--------------------------------\n';
@@ -128,22 +155,23 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
     if (order.items && order.items.length > 0) {
       order.items.forEach((it) => {
+        const { harga, subtotal } = getItemPricing(it);
         const title = `${marker}${it.qty}x ${it.nama.toUpperCase()}`;
-        const subtotal = formatRupiah(it.subtotal);
+        const subtotalStr = formatRupiah(subtotal);
 
         if (it.qty > 1) {
           text += `${title}\n`;
-          const unit = `   @ ${formatRupiah(it.harga)}`;
-          const spaces = Math.max(1, 32 - unit.length - subtotal.length);
-          text += `${unit}${' '.repeat(spaces)}${subtotal}\n`;
+          const unit = `   @ ${formatRupiah(harga)}`;
+          const spaces = Math.max(1, 32 - unit.length - subtotalStr.length);
+          text += `${unit}${' '.repeat(spaces)}${subtotalStr}\n`;
         } else {
-          if (title.length + 1 + subtotal.length <= 32) {
-            const spaces = 32 - title.length - subtotal.length;
-            text += `${title}${' '.repeat(spaces)}${subtotal}\n`;
+          if (title.length + 1 + subtotalStr.length <= 32) {
+            const spaces = 32 - title.length - subtotalStr.length;
+            text += `${title}${' '.repeat(spaces)}${subtotalStr}\n`;
           } else {
             text += `${title}\n`;
-            const spaces = Math.max(1, 32 - subtotal.length);
-            text += `${' '.repeat(spaces)}${subtotal}\n`;
+            const spaces = Math.max(1, 32 - subtotalStr.length);
+            text += `${' '.repeat(spaces)}${subtotalStr}\n`;
           }
         }
       });
@@ -205,11 +233,12 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
     if (order.items && order.items.length > 0) {
       order.items.forEach((it) => {
+        const { harga, subtotal } = getItemPricing(it);
         lines.push(`${marker}${it.qty}x ${it.nama.toUpperCase()}`);
         if (it.qty > 1) {
-          lines.push(`   @ ${formatRupiah(it.harga)} = ${formatRupiah(it.subtotal)}`);
+          lines.push(`   @ ${formatRupiah(harga)} = ${formatRupiah(subtotal)}`);
         } else {
-          lines.push(`   ${formatRupiah(it.subtotal)}`);
+          lines.push(`   ${formatRupiah(subtotal)}`);
         }
       });
     } else {
@@ -583,34 +612,37 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   ITEM PESANAN:
                 </p>
                 {order.items && order.items.length > 0 ? (
-                  order.items.map((it, idx) => (
-                    <div key={idx} className="space-y-0.5">
-                      <div className="flex items-start justify-between gap-1">
-                        <div className="flex items-start gap-1 flex-1 min-w-0">
-                          {markerStyle === 'bullet' && (
-                            <span className="font-black text-black select-none text-[11px] leading-tight shrink-0">•</span>
-                          )}
-                          {markerStyle === 'dash' && (
-                            <span className="font-black text-black select-none text-[11px] leading-tight shrink-0">-</span>
-                          )}
-                          {markerStyle === 'box' && (
-                            <span className="inline-block w-2.5 h-2.5 border border-black rounded-[1px] shrink-0 mt-0.5" />
-                          )}
-                          <span className="font-bold text-[10.5px] uppercase leading-tight">
-                            {it.qty}x {it.nama}
+                  order.items.map((it, idx) => {
+                    const { harga, subtotal } = getItemPricing(it);
+                    return (
+                      <div key={idx} className="space-y-0.5">
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="flex items-start gap-1 flex-1 min-w-0">
+                            {markerStyle === 'bullet' && (
+                              <span className="font-black text-black select-none text-[11px] leading-tight shrink-0">•</span>
+                            )}
+                            {markerStyle === 'dash' && (
+                              <span className="font-black text-black select-none text-[11px] leading-tight shrink-0">-</span>
+                            )}
+                            {markerStyle === 'box' && (
+                              <span className="inline-block w-2.5 h-2.5 border border-black rounded-[1px] shrink-0 mt-0.5" />
+                            )}
+                            <span className="font-bold text-[10.5px] uppercase leading-tight">
+                              {it.qty}x {it.nama}
+                            </span>
+                          </div>
+                          <span className="font-bold text-[10.5px] shrink-0 text-right">
+                            {formatRupiah(subtotal)}
                           </span>
                         </div>
-                        <span className="font-bold text-[10.5px] shrink-0 text-right">
-                          {formatRupiah(it.subtotal)}
-                        </span>
+                        {it.qty > 1 && (
+                          <div className={`text-[9px] text-stone-600 ${markerStyle === 'none' ? 'pl-2' : 'pl-3.5'}`}>
+                            @ {formatRupiah(harga)}
+                          </div>
+                        )}
                       </div>
-                      {it.qty > 1 && (
-                        <div className={`text-[9px] text-stone-600 ${markerStyle === 'none' ? 'pl-2' : 'pl-3.5'}`}>
-                          @ {formatRupiah(it.harga)}
-                        </div>
-                      )}
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-[10px] space-y-1">
                     {order.rincianMenu.split('\n').filter(Boolean).map((line, lIdx) => (
