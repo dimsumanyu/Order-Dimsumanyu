@@ -22,7 +22,8 @@ import {
   loadPrinterConfig,
   createEscPosBuffer,
   sendBluetoothEscPos,
-  createRawBtUrl
+  createRawBtUrl,
+  isIosDevice
 } from '../utils/printer';
 import { PrinterSetupModal } from './PrinterSetupModal';
 
@@ -384,6 +385,22 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
               <span>Hubungkan Printer</span>
             </button>
           </div>
+
+          {/* iPhone Bluefy Tip (Shown on iOS if not connected via Bluetooth yet) */}
+          {isIosDevice() && printerConfig.type !== 'bluetooth' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-2.5 text-xs text-blue-950 flex items-center justify-between gap-2 no-print">
+              <span className="text-[11px] leading-snug">
+                📱 <b>Pengguna iPhone:</b> Buka link web ini di browser gratis <b>Bluefy</b> (App Store) agar Bluetooth Iware X-58BT II langsung terdeteksi.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPrinterSetup(true)}
+                className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg transition"
+              >
+                Panduan iPhone
+              </button>
+            </div>
+          )}
 
           {/* Print Feedback Alert (Hidden on print) */}
           {printFeedback && (

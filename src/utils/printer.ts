@@ -98,23 +98,42 @@ export function createEscPosBuffer(lines: string[]): Uint8Array {
 }
 
 // Common Bluetooth Low Energy Service UUIDs used by 58mm / 80mm thermal mini printers
-// (PT-210, POS-58, GOOJPRT, Panda, RPP02N, Zjiang, Eppos, etc.)
+// (RPP02N / Iware X-58BT II, PT-210, POS-58, GOOJPRT, Panda, Zjiang, Eppos, Xprinter, etc.)
 const THERMAL_BLE_SERVICES = [
   '000018f0-0000-1000-8000-00805f9b34fb',
-  '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-  '0000ff00-0000-1000-8000-00805f9b34fb',
+  '0000ffe0-0000-1000-8000-00805f9b34fb', // RPP02N / HM-10 transparent UART
+  '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC transparent UART
+  '0000ff00-0000-1000-8000-00805f9b34fb', // POS standard
+  '0000e0ff-3c17-d293-8e48-14fe2e4da212',
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
   '0000fee7-0000-1000-8000-00805f9b34fb',
   '0000ae00-0000-1000-8000-00805f9b34fb',
   '0000fff0-0000-1000-8000-00805f9b34fb',
+  '00001800-0000-1000-8000-00805f9b34fb',
+  '00001801-0000-1000-8000-00805f9b34fb',
+  '0000180a-0000-1000-8000-00805f9b34fb',
 ];
+
+export function isIosDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+}
 
 export async function scanAndConnectBluetooth(): Promise<{ success: boolean; deviceName: string; error?: string }> {
   if (typeof navigator === 'undefined' || !(navigator as any).bluetooth) {
+    if (isIosDevice()) {
+      return {
+        success: false,
+        deviceName: '',
+        error:
+          'Di iPhone, Apple memblokir akses Bluetooth pada browser Safari & Chrome. Agar bisa connect langsung di iPhone, buka link admin ini menggunakan browser gratis "Bluefy" dari App Store.',
+      };
+    }
     return {
       success: false,
       deviceName: '',
-      error: 'Browser ini belum mendukung Web Bluetooth. Disarankan gunakan Google Chrome di Android / Laptop, atau gunakan opsi RawBT.',
+      error:
+        'Browser ini belum mendukung Web Bluetooth. Gunakan Google Chrome di Laptop / HP Android, atau buka di browser "Bluefy" jika memakai iPhone.',
     };
   }
 

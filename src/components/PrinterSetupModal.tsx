@@ -13,7 +13,9 @@ import {
   RotateCw,
   ExternalLink,
   Check,
-  Radio
+  Radio,
+  Copy,
+  Info
 } from 'lucide-react';
 import {
   PrinterConfig,
@@ -24,6 +26,7 @@ import {
   createEscPosBuffer,
   generateTestReceiptLines,
   createRawBtUrl,
+  isIosDevice,
 } from '../utils/printer';
 
 interface PrinterSetupModalProps {
@@ -38,18 +41,26 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
   onPrinterUpdated,
 }) => {
   const [config, setConfig] = useState<PrinterConfig>(loadPrinterConfig());
-  const [activeTab, setActiveTab] = useState<'bluetooth' | 'wifi' | 'rawbt' | 'usb' | 'system'>('bluetooth');
+  const [activeTab, setActiveTab] = useState<'bluetooth' | 'iphone' | 'wifi' | 'rawbt' | 'system'>('bluetooth');
   const [isScanning, setIsScanning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [wifiIp, setWifiIp] = useState(config.ipAddress || '192.168.1.100');
+  const [wifiIp, setWifiIp] = useState(config.ipAddress || '192.168.123.100');
   const [wifiPort, setWifiPort] = useState(config.port ? String(config.port) : '9100');
   const [isTesting, setIsTesting] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       const current = loadPrinterConfig();
       setConfig(current);
-      setActiveTab(current.type);
+      const iosDetected = isIosDevice();
+      setIsIos(iosDetected);
+      if (iosDetected && current.type === 'system') {
+        setActiveTab('iphone');
+      } else {
+        setActiveTab(current.type === 'wifi' ? 'wifi' : current.type === 'rawbt' ? 'rawbt' : 'bluetooth');
+      }
       if (current.ipAddress) setWifiIp(current.ipAddress);
       if (current.port) setWifiPort(String(current.port));
     }
@@ -57,12 +68,24 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
 
   if (!isOpen) return null;
 
+  const adminUrl = typeof window !== 'undefined' ? `${window.location.origin}/?admin=true` : 'https://order-dimsumanyu.vercel.app/?admin=true';
+
+  const handleCopyAdminLink = async () => {
+    try {
+      await navigator.clipboard.writeText(adminUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      // fallback
+    }
+  };
+
   // 1. BLUETOOTH SCANNING (IN-APP BLE DIRECT DISCOVERY)
   const handleScanBluetooth = async () => {
     setIsScanning(true);
     setStatusMessage({
       type: 'info',
-      text: 'Membuka jendela pencarian Bluetooth... Silakan pilih printer thermal Anda dari daftar perangkat.',
+      text: 'Membuka jendela pencarian Bluetooth... Nyalakan printer Iware X-58BT II Anda.',
     });
 
     const res = await scanAndConnectBluetooth();
@@ -71,8 +94,8 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
     if (res.success) {
       const newCfg: PrinterConfig = {
         type: 'bluetooth',
-        name: res.deviceName || 'Thermal POS Printer',
-        paperWidth: config.paperWidth || 58,
+        name: res.deviceName || 'Iware X-58BT II',
+        paperWidth: 58,
       };
       setConfig(newCfg);
       savePrinterConfig(newCfg);
@@ -155,7 +178,7 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
         const buffer = createEscPosBuffer(lines);
         const sent = await sendBluetoothEscPos(buffer);
         if (sent) {
-          setStatusMessage({ type: 'success', text: 'Perintah tes cetak berhasil dikirim ke printer bluetooth!' });
+          setStatusMessage({ type: 'success', text: 'Perintah tes cetak berhasil dikirim ke printer bluetooth Iware!' });
         } else {
           setStatusMessage({
             type: 'error',
@@ -193,10 +216,10 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-black text-stone-900 leading-tight">
-                Hubungkan Printer Kasir
+                Hubungkan Printer Iware X-58BT II
               </h3>
               <p className="text-[11px] text-stone-500">
-                Pencarian printer thermal ala Kasir Mini (Bluetooth, WiFi, USB, RawBT)
+                Spesifikasi terkonfirmasi: Thermal USB + Bluetooth (58mm)
               </p>
             </div>
           </div>
@@ -237,6 +260,46 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
           </button>
         </div>
 
+        {/* Special iPhone Alert Banner (Shown if iOS device detected) */}
+        {isIos && (
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 rounded-2xl p-3.5 space-y-2">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 font-black text-[11px] mt-0.5">
+                iOS
+              </div>
+              <div className="text-xs text-blue-950 space-y-0.5">
+                <p className="font-extrabold text-blue-950">
+                  📱 Terdeteksi: Anda Menggunakan iPhone (iOS)
+                </p>
+                <p className="text-[11px] text-blue-900 leading-relaxed">
+                  Apple <b>memblokir akses Bluetooth</b> di Safari &amp; Chrome iOS. Agar bisa langsung connect ke Iware X-58BT II di iPhone, gunakan browser gratis <b>Bluefy</b> dari App Store!
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <a
+                href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-center text-xs flex items-center justify-center gap-1.5 shadow-xs transition"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Download Bluefy di App Store (Gratis)</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={handleCopyAdminLink}
+                className="bg-white hover:bg-blue-50 text-blue-800 font-bold py-2 px-3 rounded-xl border border-blue-300 text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedLink ? 'Link Tersalin!' : 'Salin Link Admin'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Status Message Alert */}
         {statusMessage && (
           <div
@@ -259,10 +322,10 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
           </div>
         )}
 
-        {/* Tab Selection (Connection Types ala Kasir Mini) */}
+        {/* Tab Selection */}
         <div>
           <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-            Pilih Jalur Koneksi Printer:
+            Pilih Solusi Koneksi:
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             <button
@@ -275,20 +338,20 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
               }`}
             >
               <Bluetooth className="w-4 h-4" />
-              <span>Bluetooth</span>
+              <span>Bluetooth Iware</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTab('wifi')}
+              onClick={() => setActiveTab('iphone')}
               className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 border transition cursor-pointer ${
-                activeTab === 'wifi'
-                  ? 'bg-amber-500 text-stone-950 border-amber-600 shadow-xs'
-                  : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                activeTab === 'iphone'
+                  ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                  : 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100'
               }`}
             >
-              <Wifi className="w-4 h-4" />
-              <span>WiFi / LAN</span>
+              <Smartphone className="w-4 h-4" />
+              <span>Panduan iPhone</span>
             </button>
 
             <button
@@ -301,7 +364,7 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
               }`}
             >
               <Smartphone className="w-4 h-4" />
-              <span>RawBT (HP)</span>
+              <span>Android (RawBT)</span>
             </button>
 
             <button
@@ -314,12 +377,12 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
               }`}
             >
               <Printer className="w-4 h-4" />
-              <span>Bawaan</span>
+              <span>Cetak Biasa</span>
             </button>
           </div>
         </div>
 
-        {/* Tab Content 1: Bluetooth Direct In-App Discovery */}
+        {/* Tab Content: Bluetooth Direct In-App Discovery */}
         {activeTab === 'bluetooth' && (
           <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-3">
             <div className="flex items-start gap-2.5">
@@ -328,13 +391,13 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
               </div>
               <div className="text-xs text-stone-600 space-y-1">
                 <p className="font-extrabold text-stone-900">
-                  Pencarian Bluetooth Langsung di Aplikasi
+                  Scan Bluetooth Iware X-58BT II (Nama: RPP02N)
                 </p>
                 <p className="leading-relaxed">
-                  Printer thermal mini (POS-58, PT-210, Panda, Goojprt) <b>tidak akan muncul</b> di menu Bluetooth bawaan HP karena menggunakan sinyal BLE/SPP khusus kasir.
+                  Printer thermal <b>Iware X-58BT II</b> Anda di layar pemindaian Bluetooth akan muncul dengan nama <b>RPP02N</b>.
                 </p>
                 <p className="leading-relaxed text-stone-500 text-[11px]">
-                  Nyalakan printer Anda, lalu klik tombol di bawah untuk mendeteksi printer langsung dari aplikasi.
+                  Nyalakan printer, lalu klik tombol di bawah dan pilih perangkat bernama <b>"RPP02N"</b>.
                 </p>
               </div>
             </div>
@@ -346,95 +409,86 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-md shadow-blue-600/20 active:scale-95 disabled:opacity-50"
             >
               <Bluetooth className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
-              <span>{isScanning ? 'Sedang Memindai Printer...' : '🔍 Cari & Sambungkan Printer Bluetooth'}</span>
+              <span>{isScanning ? 'Sedang Memindai Iware X-58BT II...' : '🔍 Cari & Sambungkan Printer Iware'}</span>
             </button>
+
+            <div className="bg-stone-100 rounded-xl p-2.5 text-[11px] text-stone-600 space-y-1">
+              <p className="font-bold text-stone-800">📌 Catatan Perangkat:</p>
+              <p>• Jika pakai <b>Laptop / PC Windows / MacBook</b>: Buka lewat Google Chrome, Bluetooth langsung connect 100%.</p>
+              <p>• Jika pakai <b>HP Android</b>: Buka lewat Chrome, Bluetooth langsung connect.</p>
+              <p>• Jika pakai <b>iPhone</b>: Gunakan tab "Panduan iPhone" karena Apple memblokir Bluetooth di Safari/Chrome.</p>
+            </div>
           </div>
         )}
 
-        {/* Tab Content 2: WiFi / Network IP */}
-        {activeTab === 'wifi' && (
+        {/* Tab Content: Khusus Pengguna iPhone (iOS) */}
+        {activeTab === 'iphone' && (
           <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-3">
             <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
-                <Wifi className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 font-black text-xs">
+                iOS
               </div>
-              <div className="text-xs text-stone-600 space-y-1">
+              <div className="text-xs text-stone-700 space-y-1">
                 <p className="font-extrabold text-stone-900">
-                  Koneksi Printer WiFi (2 Cara Kerja)
+                  Mengapa di iPhone Muncul "Tidak Didukung Browser"?
                 </p>
-                <p className="leading-relaxed text-[11px]">
-                  <b>1. WiFi Langsung dari Printer (Mode AP)</b>: Hubungkan HP/Laptop Anda ke sinyal WiFi yang dipancarkan printernya (misal: <i>POS_WiFi</i> atau <i>Printer_AP</i>).<br/>
-                  <b>2. WiFi Router Bersama (Mode Klien)</b>: Printer dan HP sama-sama tersambung ke WiFi router toko/outlet yang sama.
+                <p className="leading-relaxed text-[11.5px]">
+                  Kebijakan keamanan <b>Apple</b> melarang Safari dan Chrome di iPhone untuk mengakses Bluetooth perangkat kasir dari web. Bahkan menginstall Chrome di iPhone tetap tidak bisa karena diatur oleh iOS WebKit Apple.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
-                  Alamat IP Printer:
-                </label>
-                <input
-                  type="text"
-                  value={wifiIp}
-                  onChange={(e) => setWifiIp(e.target.value)}
-                  placeholder="192.168.123.100"
-                  className="w-full px-3 py-2 bg-white rounded-xl border border-stone-300 text-xs font-mono outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                />
+            {/* Solusi 1: Bluefy Browser */}
+            <div className="bg-white rounded-xl p-3 border border-blue-200 text-xs space-y-2">
+              <div className="flex items-center gap-1.5 text-blue-900 font-extrabold">
+                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px]">1</span>
+                <span>Solusi Utama: Pakai Browser "Bluefy" (Gratis di App Store)</span>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
-                  Port:
-                </label>
-                <input
-                  type="text"
-                  value={wifiPort}
-                  onChange={(e) => setWifiPort(e.target.value)}
-                  placeholder="9100"
-                  className="w-full px-3 py-2 bg-white rounded-xl border border-stone-300 text-xs font-mono outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                />
-              </div>
-            </div>
-
-            {/* Quick Presets for common thermal printer IPs */}
-            <div>
-              <span className="text-[10px] font-bold text-stone-500 block mb-1">Pilihan Cepat IP Bawaan Pabrik:</span>
-              <div className="flex flex-wrap gap-1.5">
-                {['192.168.123.100', '192.168.1.100', '192.168.0.100', '192.168.4.1'].map((ip) => (
-                  <button
-                    key={ip}
-                    type="button"
-                    onClick={() => setWifiIp(ip)}
-                    className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-white border border-stone-200 hover:border-emerald-500 hover:text-emerald-700 transition cursor-pointer"
-                  >
-                    {ip}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Self-Test Guide Box */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-950 space-y-1">
-              <p className="font-extrabold flex items-center gap-1 text-amber-900">
-                <span>💡 Trik Mengetahui IP &amp; Jenis Printer Anda:</span>
+              <p className="text-[11px] text-stone-600 leading-relaxed pl-6.5">
+                Bluefy adalah browser resmi di App Store yang dibuat khusus agar iPhone bisa memakai Web Bluetooth. Langkahnya sangat gampang:
               </p>
-              <p className="text-[10.5px] leading-relaxed">
-                Matikan printer (Power OFF) → Tahan tombol <b>FEED</b> kertas → Sambil ditahan nyalakan <b>POWER (ON)</b> selama 3 detik lalu lepas tombol FEED. Printer akan otomatis mencetak kertas struk berisi <b>IP Address</b> dan jenis koneksi printer Anda!
+              <ol className="text-[11px] text-stone-700 space-y-1 list-decimal pl-10">
+                <li>Download aplikasi <b>Bluefy - Web BLE Browser</b> di App Store.</li>
+                <li>Salin link admin Dimsum Anyu: <code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-[10px] select-all">{adminUrl}</code></li>
+                <li>Buka aplikasi Bluefy, paste link tersebut di address bar.</li>
+                <li>Klik tombol <b>"Cetak Resi"</b> → <b>"Cari Printer"</b>, printer Iware X-58BT II langsung muncul dan connect!</li>
+              </ol>
+
+              <div className="flex gap-2 pt-1 pl-6.5">
+                <a
+                  href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-center text-xs flex items-center justify-center gap-1.5 shadow-xs transition"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Download Bluefy di App Store</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleCopyAdminLink}
+                  className="bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedLink ? 'Tersalin!' : 'Salin Link'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Solusi 2: Laptop / HP Android */}
+            <div className="bg-white rounded-xl p-3 border border-stone-200 text-xs space-y-1.5">
+              <div className="flex items-center gap-1.5 text-stone-900 font-extrabold">
+                <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-[10px]">2</span>
+                <span>Solusi Alternatif: Buka di Laptop atau HP Android</span>
+              </div>
+              <p className="text-[11px] text-stone-600 leading-relaxed pl-6.5">
+                Jika di outlet ada Laptop (Windows / MacBook) atau HP Android, buka link admin di Google Chrome biasa. Iware X-58BT II langsung terdeteksi 1-klik tanpa perlu install browser lain!
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={handleSaveWifi}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-md shadow-emerald-600/20 active:scale-95"
-            >
-              <Check className="w-4 h-4" />
-              <span>Simpan &amp; Terapkan Printer WiFi</span>
-            </button>
           </div>
         )}
 
-        {/* Tab Content 3: RawBT Driver (Android Standard for Kasir Mini) */}
+        {/* Tab Content: Android RawBT */}
         {activeTab === 'rawbt' && (
           <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-3">
             <div className="flex items-start gap-2.5">
@@ -446,7 +500,7 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
                   Aplikasi RawBT (Solusi Terpopuler di HP Android)
                 </p>
                 <p className="leading-relaxed">
-                  Sama persis seperti aplikasi Kasir Mini di Android: RawBT adalah driver cetak yang dapat mengenali <b>SEMUA jenis printer thermal</b> (Bluetooth, WiFi, USB) tanpa kendala pairing.
+                  Jika admin atau kasir menggunakan HP Android, aplikasi RawBT adalah driver paling handal untuk Iware X-58BT II tanpa kendala pairing.
                 </p>
               </div>
             </div>
@@ -474,7 +528,7 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
           </div>
         )}
 
-        {/* Tab Content 4: System Print */}
+        {/* Tab Content: System Print */}
         {activeTab === 'system' && (
           <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-3">
             <div className="flex items-start gap-2.5">
@@ -486,7 +540,7 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
                   Dialog Cetak Bawaan (Browser / OS)
                 </p>
                 <p className="leading-relaxed">
-                  Membuka kotak dialog cetak browser (format resi kertas gulung 58mm). Cocok jika printer sudah diinstal drivernya di komputer/laptop Windows/Mac.
+                  Membuka kotak dialog cetak browser (format resi kertas gulung 58mm). Cocok jika printer Iware X-58BT II tersambung lewat kabel USB di Laptop Windows / Mac.
                 </p>
               </div>
             </div>
@@ -505,7 +559,7 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
         {/* Footer / Close */}
         <div className="flex items-center justify-between pt-2 border-t border-stone-100">
           <p className="text-[11px] text-stone-400">
-            Format: Kertas Struk 58mm Thermal
+            Printer: Iware X-58BT II • Kertas: 58mm
           </p>
           <button
             type="button"
