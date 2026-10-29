@@ -426,24 +426,29 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Helper to send order directly to Google Apps Script Webhook (for static Vercel hosting)
-  const sendDirectToAppsScript = async (order: OrderData) => {
-    if (!settings.appsScriptUrl) return false;
+  // Helper to send order directly to Google Apps Script Webhook (Single clean request, deduplicated)
+  const sendDirectToAppsScript = async (order: OrderData): Promise<boolean> => {
+    const targetScriptUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+    if (!targetScriptUrl) return false;
     try {
-      const targetUrl = `${settings.appsScriptUrl}?action=order&payload=${encodeURIComponent(JSON.stringify(order))}`;
-      // 1. Send with standard fetch (follow redirect to allow Google Apps Script to finish)
-      fetch(targetUrl, { method: 'GET', redirect: 'follow' }).catch(() => {});
-      // 2. Fallback mode: 'no-cors'
-      fetch(targetUrl, { mode: 'no-cors' }).catch(() => {});
-      // 3. Fallback Image beacon to guarantee delivery on iOS Safari / iPhone 13 even on tab switch
-      if (typeof Image !== 'undefined') {
-        const beacon = new Image();
-        beacon.src = targetUrl;
+      const targetUrl = `${targetScriptUrl}?action=order&payload=${encodeURIComponent(JSON.stringify(order))}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(targetUrl, { method: 'GET', redirect: 'follow', signal: controller.signal });
+      clearTimeout(timeout);
+      return res.ok;
+    } catch {
+      // Fallback single no-cors request if redirect/CORS blocked standard fetch
+      try {
+        await fetch(`${targetScriptUrl}?action=order&payload=${encodeURIComponent(JSON.stringify(order))}`, {
+          method: 'GET',
+          mode: 'no-cors',
+        });
+        return true;
+      } catch (fallbackErr) {
+        console.warn('Direct Apps Script ping failed:', fallbackErr);
+        return false;
       }
-      return true;
-    } catch (e) {
-      console.warn('Direct Apps Script ping failed:', e);
-      return false;
     }
   };
 
@@ -456,6 +461,7 @@ export default function App() {
     metodeBayar: PaymentMethod;
     catatan: string;
   }) => {
+    if (isSubmitting) return; // Guard: prevent duplicate clicks
     setIsSubmitting(true);
     try {
       const orderItems = cartEntries.map(([id, qty]) => {

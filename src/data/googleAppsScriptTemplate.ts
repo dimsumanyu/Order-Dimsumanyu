@@ -461,7 +461,7 @@ function doPost(e) {
 }
 
 // -------------------------------------------------------------
-// PENYIMPANAN PESANAN KE SHEET 'Pesanan'
+// PENYIMPANAN PESANAN KE SHEET 'Pesanan' (DENGAN DEDUPLIKASI & AUTO-MAP KOLOM)
 // -------------------------------------------------------------
 function simpanPesanan(orderData) {
   var ss = getTargetSpreadsheet();
@@ -471,21 +471,78 @@ function simpanPesanan(orderData) {
 
   var now = new Date();
   var timestampStr = Utilities.formatDate(now, "Asia/Makassar", "yyyy-MM-dd HH:mm:ss");
-  var orderId = orderData.id || ("DAN-" + Utilities.formatDate(now, "Asia/Makassar", "yyyyMMdd-HHmmss"));
+  var orderId = String(orderData.id || ("DAN-" + Utilities.formatDate(now, "Asia/Makassar", "yyyyMMdd-HHmmss"))).trim();
   
-  var rowData = [
-    timestampStr,
-    orderId,
-    orderData.nama || "-",
-    "'" + (orderData.phone || "-"),
-    orderData.opsiPengiriman || "Diantar ke Alamat",
-    orderData.alamat || "-",
-    orderData.metodeBayar || "QRIS",
-    orderData.catatan || "-",
-    orderData.rincianMenu || "-",
-    orderData.totalHarga || 0,
-    orderData.status || "Menunggu payment"
-  ];
+  var values = sheet.getDataRange().getValues();
+  var headers = values.length > 0 ? values[0] : [];
+  
+  // 1. DEDUPLIKASI KETAT: Cek apakah ID Pesanan ini SUDAH TERCATAT di sheet!
+  // Jika sudah ada, jangan tambahkan baris baru (cegah 1 klik jadi 3 baris)
+  if (values.length > 1) {
+    for (var i = 1; i < values.length; i++) {
+      var rowCheck = values[i];
+      for (var c = 0; c < rowCheck.length; c++) {
+        if (String(rowCheck[c] || "").trim() === orderId) {
+          return {
+            success: true,
+            duplicate: true,
+            orderId: orderId,
+            message: "Pesanan sudah ada di sheet (duplikat dicegah)."
+          };
+        }
+      }
+    }
+  }
+
+  // 2. AUTO-MAP KOLOM SESUAI HEADER SPREADSHEET PENGGUNA
+  var colMap = {
+    timestamp: 0,
+    orderId: 1,
+    nama: 2,
+    phone: 3,
+    opsi: 4,
+    alamat: 5,
+    metode: 6,
+    catatan: 7,
+    rincian: 8,
+    total: 9,
+    status: 10
+  };
+
+  if (headers.length > 0) {
+    for (var h = 0; h < headers.length; h++) {
+      var hText = String(headers[h] || '').trim().toLowerCase();
+      if (!hText) continue;
+      if (hText.indexOf('id') !== -1 && hText.indexOf('pesanan') !== -1) colMap.orderId = h;
+      else if (hText.indexOf('id') !== -1 && colMap.orderId === 1) colMap.orderId = h;
+      else if (hText.indexOf('waktu') !== -1 || hText.indexOf('tanggal') !== -1 || hText.indexOf('tgl') !== -1) colMap.timestamp = h;
+      else if (hText.indexOf('nama') !== -1 || hText.indexOf('pemesan') !== -1 || hText.indexOf('pelanggan') !== -1) colMap.nama = h;
+      else if (hText.indexOf('wa') !== -1 || hText.indexOf('whatsapp') !== -1 || hText.indexOf('telepon') !== -1 || hText.indexOf('hp') !== -1) colMap.phone = h;
+      else if (hText.indexOf('opsi') !== -1 || hText.indexOf('pengiriman') !== -1 || hText.indexOf('ambil') !== -1) colMap.opsi = h;
+      else if (hText.indexOf('alamat') !== -1 || hText.indexOf('tujuan') !== -1 || hText.indexOf('lokasi') !== -1) colMap.alamat = h;
+      else if (hText.indexOf('metode') !== -1 || hText.indexOf('pembayaran') !== -1 || (hText.indexOf('bayar') !== -1 && hText.indexOf('total') === -1)) colMap.metode = h;
+      else if (hText.indexOf('catatan') !== -1 || hText.indexOf('note') !== -1 || hText.indexOf('keterangan') !== -1) colMap.catatan = h;
+      else if (hText.indexOf('rincian') !== -1 || hText.indexOf('menu') !== -1 || hText.indexOf('item') !== -1) colMap.rincian = h;
+      else if (hText.indexOf('total') !== -1 || hText.indexOf('harga') !== -1 || hText.indexOf('rp') !== -1 || hText.indexOf('nominal') !== -1) colMap.total = h;
+      else if (hText.indexOf('status') !== -1) colMap.status = h;
+    }
+  }
+
+  // Siapkan baris data baru sesuai panjang kolom header
+  var maxCol = Math.max(headers.length, 11);
+  var rowData = new Array(maxCol).fill("-");
+
+  rowData[colMap.timestamp] = timestampStr;
+  rowData[colMap.orderId] = orderId;
+  rowData[colMap.nama] = orderData.nama || "-";
+  rowData[colMap.phone] = "'" + (orderData.phone || "-");
+  rowData[colMap.opsi] = orderData.opsiPengiriman || "Diantar ke Alamat";
+  rowData[colMap.alamat] = orderData.alamat || "-";
+  rowData[colMap.metode] = orderData.metodeBayar || "QRIS";
+  rowData[colMap.catatan] = orderData.catatan || "-";
+  rowData[colMap.rincian] = orderData.rincianMenu || "-";
+  rowData[colMap.total] = Number(orderData.totalHarga) || 0;
+  rowData[colMap.status] = orderData.status || "Menunggu payment";
 
   sheet.appendRow(rowData);
   
@@ -531,9 +588,28 @@ function updateOrderStatusInSheet(orderId, newStatus) {
   var sheet = ss.getSheetByName("Pesanan") || ss.getSheetByName("Orders");
   if (!sheet) return false;
   var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return false;
+
+  var headers = values[0];
+  var colStatus = 10;
+  for (var h = 0; h < headers.length; h++) {
+    if (String(headers[h] || '').toLowerCase().indexOf('status') !== -1) {
+      colStatus = h;
+      break;
+    }
+  }
+
   for (var i = 1; i < values.length; i++) {
-    if (String(values[i][1]).trim() === String(orderId).trim()) {
-      sheet.getRange(i + 1, 11).setValue(newStatus);
+    var row = values[i];
+    var matched = false;
+    for (var c = 0; c < row.length; c++) {
+      if (String(row[c] || "").trim() === String(orderId).trim()) {
+        matched = true;
+        break;
+      }
+    }
+    if (matched) {
+      sheet.getRange(i + 1, colStatus + 1).setValue(newStatus);
       return true;
     }
   }
@@ -547,20 +623,69 @@ function getPesananFromSheet() {
   var values = sheet.getDataRange().getValues();
   if (values.length <= 1) return [];
 
+  var headers = values[0];
+  var colMap = {
+    timestamp: 0,
+    orderId: 1,
+    nama: 2,
+    phone: 3,
+    opsi: 4,
+    alamat: 5,
+    metode: 6,
+    catatan: 7,
+    rincian: 8,
+    total: 9,
+    status: 10
+  };
+
+  for (var h = 0; h < headers.length; h++) {
+    var hText = String(headers[h] || '').trim().toLowerCase();
+    if (!hText) continue;
+    if (hText.indexOf('id') !== -1 && hText.indexOf('pesanan') !== -1) colMap.orderId = h;
+    else if (hText.indexOf('id') !== -1 && colMap.orderId === 1) colMap.orderId = h;
+    else if (hText.indexOf('waktu') !== -1 || hText.indexOf('tanggal') !== -1 || hText.indexOf('tgl') !== -1) colMap.timestamp = h;
+    else if (hText.indexOf('nama') !== -1 || hText.indexOf('pemesan') !== -1 || hText.indexOf('pelanggan') !== -1) colMap.nama = h;
+    else if (hText.indexOf('wa') !== -1 || hText.indexOf('whatsapp') !== -1 || hText.indexOf('telepon') !== -1 || hText.indexOf('hp') !== -1) colMap.phone = h;
+    else if (hText.indexOf('opsi') !== -1 || hText.indexOf('pengiriman') !== -1 || hText.indexOf('ambil') !== -1) colMap.opsi = h;
+    else if (hText.indexOf('alamat') !== -1 || hText.indexOf('tujuan') !== -1 || hText.indexOf('lokasi') !== -1) colMap.alamat = h;
+    else if (hText.indexOf('metode') !== -1 || hText.indexOf('pembayaran') !== -1 || (hText.indexOf('bayar') !== -1 && hText.indexOf('total') === -1)) colMap.metode = h;
+    else if (hText.indexOf('catatan') !== -1 || hText.indexOf('note') !== -1 || hText.indexOf('keterangan') !== -1) colMap.catatan = h;
+    else if (hText.indexOf('rincian') !== -1 || hText.indexOf('menu') !== -1 || hText.indexOf('item') !== -1) colMap.rincian = h;
+    else if (hText.indexOf('total') !== -1 || hText.indexOf('harga') !== -1 || hText.indexOf('rp') !== -1 || hText.indexOf('nominal') !== -1) colMap.total = h;
+    else if (hText.indexOf('status') !== -1) colMap.status = h;
+  }
+
   var orders = [];
+  var seenIds = {};
+
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
-    var orderId = String(row[1] || "").trim();
+    
+    // Temukan Order ID (baik di colMap.orderId atau scan format DAN- / DSM- di baris ini)
+    var orderId = String(row[colMap.orderId] || "").trim();
+    if (!orderId || (!orderId.startsWith("DAN-") && !orderId.startsWith("DSM-"))) {
+      for (var c = 0; c < row.length; c++) {
+        var valStr = String(row[c] || "").trim();
+        if (valStr.startsWith("DAN-") || valStr.startsWith("DSM-")) {
+          orderId = valStr;
+          break;
+        }
+      }
+    }
     if (!orderId) continue;
 
-    var rawTotal = row[9];
+    // Cegah duplikat ID pada daftar pesanan
+    if (seenIds[orderId]) continue;
+    seenIds[orderId] = true;
+
+    var rawTotal = row[colMap.total];
     var totalHarga = typeof rawTotal === "number"
       ? rawTotal
       : parseInt(String(rawTotal).replace(/[^0-9]/g, ""), 10) || 0;
 
-    var dateVal = row[0];
+    var dateVal = row[colMap.timestamp];
     var createdAtStr = dateVal instanceof Date ? dateVal.toISOString() : String(dateVal || new Date().toISOString());
-    var rincian = String(row[8] || "").trim();
+    var rincian = String(row[colMap.rincian] || "").trim();
 
     // Rekonstruksi items agar struk dan rincian menu tampil rapi
     var parsedItems = [];
@@ -601,16 +726,16 @@ function getPesananFromSheet() {
     orders.push({
       id: orderId,
       createdAt: createdAtStr,
-      nama: String(row[2] || "Pelanggan").trim(),
-      phone: String(row[3] || "").replace(/^'/, "").trim(),
-      opsiPengiriman: String(row[4] || "Diantar ke Alamat").trim(),
-      alamat: String(row[5] || "").trim(),
-      metodeBayar: String(row[6] || "QRIS").trim(),
-      catatan: String(row[7] || "").trim(),
+      nama: String(row[colMap.nama] || "Pelanggan").trim(),
+      phone: String(row[colMap.phone] || "").replace(/^'/, "").trim(),
+      opsiPengiriman: String(row[colMap.opsi] || "Diantar ke Alamat").trim(),
+      alamat: String(row[colMap.alamat] || "").trim(),
+      metodeBayar: String(row[colMap.metode] || "QRIS").trim(),
+      catatan: String(row[colMap.catatan] || "").trim(),
       rincianMenu: rincian,
       items: parsedItems,
       totalHarga: totalHarga,
-      status: String(row[10] || "Menunggu payment").trim(),
+      status: String(row[colMap.status] || "Menunggu payment").trim(),
       syncedToSheets: true
     });
   }
