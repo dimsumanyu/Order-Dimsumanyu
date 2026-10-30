@@ -159,6 +159,39 @@ async function startServer() {
     res.json({ success: true, menu });
   });
 
+  app.post('/api/menu/toggle-bestseller', (req, res) => {
+    const { id } = req.body;
+    const target = menu.find(m => m.id === id);
+    if (!target) {
+      return res.status(404).json({ success: false, error: 'Menu tidak ditemukan' });
+    }
+    target.isBestSeller = !target.isBestSeller;
+    saveJSON(MENU_FILE, menu);
+    res.json({ success: true, menu, target });
+  });
+
+  app.post('/api/menu/save-item', (req, res) => {
+    const item: MenuItem = req.body;
+    if (!item || !item.id) {
+      return res.status(400).json({ success: false, error: 'Data menu tidak valid' });
+    }
+    const idx = menu.findIndex(m => m.id === item.id);
+    if (idx >= 0) {
+      menu[idx] = { ...menu[idx], ...item };
+    } else {
+      menu.push(item);
+    }
+    saveJSON(MENU_FILE, menu);
+    res.json({ success: true, menu, item });
+  });
+
+  app.delete('/api/menu/item/:id', (req, res) => {
+    const { id } = req.params;
+    menu = menu.filter(m => m.id !== id);
+    saveJSON(MENU_FILE, menu);
+    res.json({ success: true, menu });
+  });
+
   app.post('/api/menu/reset', (_req, res) => {
     menu = [...INITIAL_MENU];
     saveJSON(MENU_FILE, menu);

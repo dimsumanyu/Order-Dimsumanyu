@@ -30,6 +30,7 @@ import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
 import { ThermalReceiptModal } from './ThermalReceiptModal';
 import { FinancialReportModal } from './FinancialReportModal';
 import { PrinterSetupModal } from './PrinterSetupModal';
+import { MenuEditorModal } from './MenuEditorModal';
 import { ErrorBoundary } from './ErrorBoundary';
 
 function parseDateSafe(val: any): Date | null {
@@ -54,6 +55,9 @@ interface AdminPanelProps {
   onSyncAll: () => Promise<void>;
   onToggleMenuStatus: (id: string) => Promise<void>;
   onResetMenu: () => Promise<void>;
+  onSaveMenuItem?: (item: MenuItem) => Promise<void>;
+  onDeleteMenuItem?: (id: string) => Promise<void>;
+  onToggleBestSeller?: (id: string) => Promise<void>;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
   onDeleteOrder: (id: string) => Promise<void>;
   onDeleteMultipleOrders?: (ids: string[]) => Promise<void>;
@@ -78,6 +82,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onSyncAll,
   onToggleMenuStatus,
   onResetMenu,
+  onSaveMenuItem,
+  onDeleteMenuItem,
+  onToggleBestSeller,
   onUpdateSettings,
   onDeleteOrder,
   onDeleteMultipleOrders,
@@ -96,6 +103,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
+
+  // Menu Editor Modal State (Tambah, Kurangi/Hapus, Best Seller, Stok)
+  const [showMenuEditorModal, setShowMenuEditorModal] = useState<boolean>(false);
 
   // Multi-Select Orders State (Bulk Delete)
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -357,8 +367,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: Lihat Toko & LOGOUT */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100">
+        {/* Action Buttons: Edit Menu, Lihat Toko & LOGOUT */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100 flex-wrap">
+          {/* 🍽️ TOMBOL EDIT / KELOLA MENU */}
+          <button
+            type="button"
+            onClick={() => setShowMenuEditorModal(true)}
+            className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 active:scale-95 text-stone-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer border border-amber-600/30"
+            title="Edit Menu: Tambah Menu, Hapus Menu, Jadikan Best Seller, & Pengaturan Stok"
+          >
+            <UtensilsCrossed className="w-3.5 h-3.5 text-stone-950" />
+            <span>Edit / Kelola Menu</span>
+          </button>
+
           {onViewStore && (
             <button
               type="button"
@@ -1045,19 +1066,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 pb-3">
             <div>
               <h3 className="font-extrabold text-stone-900 text-xs sm:text-sm">
-                Kelola Ketersediaan Menu (Total: {menuItems.length} Produk)
+                Kelola Menu &amp; Ketersediaan Stok (Total: {menuItems.length} Produk)
               </h3>
               <p className="text-[11px] text-stone-500">
-                Menu yang berstatus HABIS tidak dapat ditambahkan ke keranjang oleh pembeli.
+                Tambah menu baru, kurangi/hapus, atur Best Seller, dan status ketersediaan stok.
               </p>
             </div>
 
-            <button
-              onClick={onResetMenu}
-              className="text-stone-500 hover:text-stone-800 text-xs font-bold border border-stone-200 px-3 py-1.5 rounded-xl transition cursor-pointer"
-            >
-              Reset ke Menu Awal Spreadsheet
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowMenuEditorModal(true)}
+                className="bg-amber-500 hover:bg-amber-600 active:scale-95 text-stone-950 text-xs font-black px-3.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs border border-amber-600/30"
+              >
+                <UtensilsCrossed className="w-3.5 h-3.5" />
+                <span>+ Edit / Kelola Menu</span>
+              </button>
+              <button
+                type="button"
+                onClick={onResetMenu}
+                className="text-stone-500 hover:text-stone-800 text-xs font-bold border border-stone-200 px-3 py-1.5 rounded-xl transition cursor-pointer"
+              >
+                Reset ke Menu Awal
+              </button>
+            </div>
           </div>
 
           <div className="divide-y divide-stone-100 max-h-[60vh] overflow-y-auto">
@@ -1069,8 +1101,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       {item.kategori}
                     </span>
                     {item.isBestSeller && (
-                      <span className="text-[9px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                        BEST SELLER
+                      <span className="text-[9px] font-extrabold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">
+                        ⭐ BEST SELLER
                       </span>
                     )}
                   </div>
@@ -1078,8 +1110,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <p className="text-red-600 font-black text-xs">{formatRupiah(item.harga)}</p>
                 </div>
 
-                <div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Quick Best Seller Toggle */}
+                  {onToggleBestSeller && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleBestSeller(item.id)}
+                      title={item.isBestSeller ? 'Hapus status Best Seller' : 'Jadikan Best Seller'}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer border ${
+                        item.isBestSeller
+                          ? 'bg-amber-100 border-amber-300 text-amber-900 hover:bg-amber-200'
+                          : 'bg-stone-50 border-stone-200 text-stone-400 hover:text-amber-600 hover:border-amber-300'
+                      }`}
+                    >
+                      {item.isBestSeller ? '⭐ Best Seller' : '☆ Non-Best'}
+                    </button>
+                  )}
+
+                  {/* Stock Availability Toggle */}
                   <button
+                    type="button"
                     onClick={() => onToggleMenuStatus(item.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                       item.status === 'TERSEDIA'
@@ -1471,6 +1521,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         isOpen={showPrinterSetupModal}
         onClose={() => setShowPrinterSetupModal(false)}
       />
+
+      {/* 🍽️ MODAL EDIT MENU (Tambah, Kurangi/Hapus, Best Seller, Stok) */}
+      {showMenuEditorModal && (
+        <MenuEditorModal
+          isOpen={showMenuEditorModal}
+          onClose={() => setShowMenuEditorModal(false)}
+          menuItems={menuItems}
+          onSaveMenuItem={async (item: MenuItem) => {
+            if (onSaveMenuItem) await onSaveMenuItem(item);
+          }}
+          onDeleteMenuItem={async (id: string) => {
+            if (onDeleteMenuItem) await onDeleteMenuItem(id);
+          }}
+          onToggleBestSeller={async (id: string) => {
+            if (onToggleBestSeller) await onToggleBestSeller(id);
+          }}
+          onToggleStatus={async (id: string) => {
+            await onToggleMenuStatus(id);
+          }}
+          onResetMenu={onResetMenu}
+        />
+      )}
     </div>
   );
 };

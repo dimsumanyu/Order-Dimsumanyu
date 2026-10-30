@@ -759,6 +759,86 @@ export default function App() {
     }
   };
 
+  const handleSaveMenuItem = async (item: MenuItem) => {
+    try {
+      setMenuItems(prev => {
+        const index = prev.findIndex(m => m.id === item.id);
+        let updated: MenuItem[];
+        if (index >= 0) {
+          updated = [...prev];
+          updated[index] = item;
+        } else {
+          updated = [...prev, item];
+        }
+        localStorage.setItem('dimsumanyu_menu', JSON.stringify(updated));
+        return updated;
+      });
+
+      try {
+        await fetch('/api/menu/save-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
+        });
+      } catch {}
+    } catch (err: any) {
+      alert('Gagal menyimpan menu: ' + err.message);
+    }
+  };
+
+  const handleDeleteMenuItem = async (id: string) => {
+    try {
+      setMenuItems(prev => {
+        const updated = prev.filter(m => m.id !== id);
+        localStorage.setItem('dimsumanyu_menu', JSON.stringify(updated));
+        return updated;
+      });
+
+      setCart(prev => {
+        if (!prev[id]) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+
+      try {
+        await fetch(`/api/menu/item/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+      } catch {}
+    } catch (err: any) {
+      alert('Gagal menghapus menu: ' + err.message);
+    }
+  };
+
+  const handleToggleBestSeller = async (id: string) => {
+    try {
+      setMenuItems(prev => {
+        const updated = prev.map(item => {
+          if (item.id === id) {
+            return {
+              ...item,
+              isBestSeller: !item.isBestSeller,
+            };
+          }
+          return item;
+        });
+        localStorage.setItem('dimsumanyu_menu', JSON.stringify(updated));
+        return updated;
+      });
+
+      try {
+        await fetch('/api/menu/toggle-bestseller', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+      } catch {}
+    } catch (err: any) {
+      alert('Gagal mengubah status best seller: ' + err.message);
+    }
+  };
+
   const handleUpdateSettings = async (newSettings: Partial<AppSettings>) => {
     try {
       setSettings(prev => {
@@ -984,6 +1064,9 @@ export default function App() {
               onSyncAll={handleSyncAll}
               onToggleMenuStatus={handleToggleMenuStatus}
               onResetMenu={handleResetMenu}
+              onSaveMenuItem={handleSaveMenuItem}
+              onDeleteMenuItem={handleDeleteMenuItem}
+              onToggleBestSeller={handleToggleBestSeller}
               onUpdateSettings={handleUpdateSettings}
               onDeleteOrder={handleDeleteOrder}
               onDeleteMultipleOrders={handleDeleteMultipleOrders}
