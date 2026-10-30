@@ -377,6 +377,16 @@ async function startServer() {
     res.json({ success: true, orders });
   });
 
+  app.post('/api/orders/bulk-delete', (req, res) => {
+    const { ids } = req.body;
+    if (Array.isArray(ids) && ids.length > 0) {
+      const idSet = new Set(ids);
+      orders = orders.filter(o => !idSet.has(o.id));
+      saveJSON(ORDERS_FILE, orders);
+    }
+    res.json({ success: true, orders });
+  });
+
   app.post('/api/admin/login', async (req, res) => {
     const { username, password, pin } = req.body;
     const cleanUser = username ? String(username).trim().toLowerCase() : '';

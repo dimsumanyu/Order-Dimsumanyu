@@ -23,7 +23,8 @@ import {
   createEscPosBuffer,
   sendBluetoothEscPos,
   createRawBtUrl,
-  isIosDevice
+  isIosDevice,
+  getLogoEscPosRaster
 } from '../utils/printer';
 import { PrinterSetupModal } from './PrinterSetupModal';
 
@@ -52,6 +53,15 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig>(() => loadPrinterConfig());
   const [printFeedback, setPrintFeedback] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  const [includeLogo, setIncludeLogo] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_print_logo');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
   const [markerStyle, setMarkerStyle] = useState<ReceiptMarkerStyle>(() => {
     try {
       return (localStorage.getItem('dimsumanyu_receipt_marker') as ReceiptMarkerStyle) || 'bullet';
@@ -59,6 +69,15 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       return 'bullet';
     }
   });
+
+  const handleToggleLogo = (val: boolean) => {
+    setIncludeLogo(val);
+    try {
+      localStorage.setItem('dimsumanyu_print_logo', String(val));
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -289,7 +308,15 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       // 2. Dispatch according to selected printer mode
       if (printerConfig.type === 'bluetooth') {
         const lines = generateEscPosLines();
-        const buffer = createEscPosBuffer(lines);
+        let logoRaster: Uint8Array | null = null;
+        if (includeLogo) {
+          try {
+            logoRaster = await getLogoEscPosRaster();
+          } catch (e) {
+            console.warn('Could not load logo raster for bluetooth:', e);
+          }
+        }
+        const buffer = createEscPosBuffer(lines, logoRaster);
         const sent = await sendBluetoothEscPos(buffer);
 
         if (sent) {
@@ -498,7 +525,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 title="Gunakan titik hitam bulat (•) di samping setiap menu"
               >
                 <span className="text-base leading-none">•</span>
-                <span>Titik Hitam (•)</span>
+                <span>Titik (•)</span>
               </button>
               <button
                 type="button"
@@ -527,6 +554,35 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 <span>Kotak Ceklis</span>
               </button>
             </div>
+
+            {/* Logo Toggle */}
+            <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
+              <span className="text-[11px] font-bold text-stone-600">Logo Dimsum Anyu di Resi:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleToggleLogo(true)}
+                  className={`px-2.5 py-1 rounded-xl text-[10.5px] font-bold transition cursor-pointer ${
+                    includeLogo
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  ✓ Cetak Logo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleLogo(false)}
+                  className={`px-2.5 py-1 rounded-xl text-[10.5px] font-bold transition cursor-pointer ${
+                    !includeLogo
+                      ? 'bg-stone-800 text-white shadow-xs'
+                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  Hanya Teks
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* 58mm Thermal Receipt Preview & Printable Target */}
@@ -543,11 +599,13 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
             >
               {/* Header Logo */}
               <div className="text-center pb-2">
-                <img
-                  src="/assets/aistudio/WhatsApp_Image_2026-10-09_at_14.12.38_aa6284a2.jpeg"
-                  alt="Logo Chef Dimsum Dimsumanyu"
-                  className="w-20 h-20 mx-auto object-contain object-top mb-1"
-                />
+                {includeLogo && (
+                  <img
+                    src="/assets/aistudio/WhatsApp_Image_2026-10-09_at_14.12.38_aa6284a2.jpeg"
+                    alt="Logo Chef Dimsum Dimsumanyu"
+                    className="w-16 h-16 mx-auto object-contain object-top mb-1 thermal-receipt-logo"
+                  />
+                )}
                 <h1 className="text-base font-black tracking-wider text-black uppercase">
                   DIMSUMANYU
                 </h1>

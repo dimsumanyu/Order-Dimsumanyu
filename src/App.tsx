@@ -758,6 +758,38 @@ export default function App() {
     }
   };
 
+  const handleDeleteMultipleOrders = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    try {
+      const idSet = new Set(ids);
+      setOrders(prev => {
+        const updated = prev.filter(o => !idSet.has(o.id));
+        localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        return updated;
+      });
+
+      // Also clean up local customer tracking IDs if any
+      setMyOrderIds(prev => {
+        const updated = prev.filter(id => !idSet.has(id));
+        try {
+          localStorage.setItem('dimsumanyu_my_order_ids', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      try {
+        await fetch('/api/orders/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        });
+      } catch {}
+    } catch (err: any) {
+      console.error('Gagal menghapus beberapa pesanan:', err);
+      throw err;
+    }
+  };
+
   const handleMarkOrderAsPrinted = async (id: string) => {
     try {
       const now = new Date().toISOString();
@@ -863,6 +895,7 @@ export default function App() {
               onResetMenu={handleResetMenu}
               onUpdateSettings={handleUpdateSettings}
               onDeleteOrder={handleDeleteOrder}
+              onDeleteMultipleOrders={handleDeleteMultipleOrders}
               onOpenSheetsGuide={() => setShowSheetsGuide(true)}
               onLogout={handleAdminLogout}
               onViewStore={() => setActiveView('order')}

@@ -47,13 +47,131 @@ export function savePrinterConfig(cfg: PrinterConfig): void {
   }
 }
 
-// Convert string to ESC/POS bytes with simple encoding
-export function createEscPosBuffer(lines: string[]): Uint8Array {
+// Cache for converted ESC/POS logo raster
+let cachedLogoRaster: Uint8Array | null = null;
+
+// Converts an image URL into ESC/POS GS v 0 raster bit image bytes
+export function convertImageToRaster(
+  imageSrc: string,
+  targetWidthDots = 208
+): Promise<Uint8Array | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return resolve(null);
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        // Ensure width is a multiple of 8
+        const width = Math.floor(targetWidthDots / 8) * 8;
+        const height = Math.round((img.naturalHeight / img.naturalWidth) * width);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return resolve(null);
+
+        // Fill solid white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw image onto canvas
+        ctx.drawImage(img, 0, 0, width, height);
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const pixels = imgData.data;
+
+        const widthBytes = width / 8;
+        const rasterData = new Uint8Array(widthBytes * height);
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 4;
+            const r = pixels[idx];
+            const g = pixels[idx + 1];
+            const b = pixels[idx + 2];
+            const a = pixels[idx + 3];
+
+            // In Dimsum Anyu logo:
+            // Background is white (r,g,b > 220, a ~ 255)
+            // Artwork is dark red (r ~ 160, g ~ 0, b ~ 0)
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            const isWhite = a < 80 || (r > 215 && g > 215 && b > 215) || lum > 175;
+            const isBlack = !isWhite;
+
+            if (isBlack) {
+              const byteIdx = y * widthBytes + Math.floor(x / 8);
+              const bitOffset = 7 - (x % 8);
+              rasterData[byteIdx] |= 1 << bitOffset;
+            }
+          }
+        }
+
+        const xL = widthBytes & 0xff;
+        const xH = (widthBytes >> 8) & 0xff;
+        const yL = height & 0xff;
+        const yH = (height >> 8) & 0xff;
+
+        // Command: ESC a 1 (center) + GS v 0 0 xL xH yL yH + [rasterData] + LF
+        const header = new Uint8Array([
+          0x1b, 0x61, 0x01,       // Center align
+          0x1d, 0x76, 0x30, 0x00, // GS v 0 0 (Raster bit image normal mode)
+          xL, xH,
+          yL, yH,
+        ]);
+
+        const fullBuffer = new Uint8Array(header.length + rasterData.length + 2);
+        fullBuffer.set(header, 0);
+        fullBuffer.set(rasterData, header.length);
+        fullBuffer.set(new Uint8Array([0x0a, 0x0a]), header.length + rasterData.length); // 2 line feeds after logo
+
+        resolve(fullBuffer);
+      } catch (e) {
+        console.warn('Canvas raster conversion error:', e);
+        resolve(null);
+      }
+    };
+    img.onerror = () => {
+      resolve(null);
+    };
+    img.src = imageSrc;
+  });
+}
+
+// Retrieves cached raster bytes of the official DIMSUMANYU logo
+export async function getLogoEscPosRaster(
+  imageSrc = '/assets/aistudio/WhatsApp_Image_2026-10-09_at_14.12.38_aa6284a2.jpeg',
+  targetWidthDots = 208
+): Promise<Uint8Array | null> {
+  if (cachedLogoRaster) return cachedLogoRaster;
+  try {
+    const raster = await convertImageToRaster(imageSrc, targetWidthDots);
+    if (raster) {
+      cachedLogoRaster = raster;
+    }
+    return raster;
+  } catch (err) {
+    console.warn('Failed to convert logo to ESC/POS raster:', err);
+    return null;
+  }
+}
+
+// Convert string to ESC/POS bytes with simple encoding + optional bitmap logo at top
+export function createEscPosBuffer(
+  lines: string[],
+  logoRasterBuffer?: Uint8Array | null
+): Uint8Array {
   const encoder = new TextEncoder();
   const chunks: Uint8Array[] = [];
 
   // ESC @ (Initialize printer)
   chunks.push(new Uint8Array([0x1b, 0x40]));
+
+  // If logo bitmap is provided, insert it at top (centered)
+  if (logoRasterBuffer && logoRasterBuffer.length > 0) {
+    chunks.push(logoRasterBuffer);
+  }
 
   for (const line of lines) {
     if (line === 'CMD_CENTER') {

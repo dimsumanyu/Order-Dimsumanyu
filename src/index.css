@@ -57,4 +57,14 @@ html, body {
     font-family: 'Courier New', Courier, monospace !important;
     page-break-after: avoid !important;
   }
+
+  /* Make sure thermal print receipt logo is pure high-contrast black on white */
+  .thermal-receipt-logo {
+    display: block !important;
+    filter: grayscale(100%) contrast(1000%) brightness(80%) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    image-rendering: -webkit-optimize-contrast !important;
+    image-rendering: pixelated !important;
+  }
 }

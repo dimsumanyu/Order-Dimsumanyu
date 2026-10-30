@@ -56,6 +56,7 @@ interface AdminPanelProps {
   onResetMenu: () => Promise<void>;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
   onDeleteOrder: (id: string) => Promise<void>;
+  onDeleteMultipleOrders?: (ids: string[]) => Promise<void>;
   onOpenSheetsGuide: () => void;
   onLogout: () => void;
   onViewStore?: () => void;
@@ -79,6 +80,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onResetMenu,
   onUpdateSettings,
   onDeleteOrder,
+  onDeleteMultipleOrders,
   onOpenSheetsGuide,
   onLogout,
   onViewStore,
@@ -94,6 +96,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
+
+  // Multi-Select Orders State (Bulk Delete)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
 
   // Thermal Receipt Modal State (58mm printer)
   const [orderForReceipt, setOrderForReceipt] = useState<OrderData | null>(null);
@@ -180,6 +187,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setTimeout(() => setActionNotice(null), 3500);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Multi-Select Orders Handlers (Pilih Banyak Pesanan)
+  const areAllFilteredSelected =
+    filteredOrders.length > 0 &&
+    filteredOrders.every((o) => selectedOrderIds.includes(o.id));
+
+  const handleToggleSelectOrder = (id: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (areAllFilteredSelected) {
+      const filteredSet = new Set(filteredOrders.map((o) => o.id));
+      setSelectedOrderIds((prev) => prev.filter((id) => !filteredSet.has(id)));
+    } else {
+      const allIds = Array.from(
+        new Set([...selectedOrderIds, ...filteredOrders.map((o) => o.id)])
+      );
+      setSelectedOrderIds(allIds);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedOrderIds([]);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedOrderIds.length === 0) return;
+    setIsBulkDeleting(true);
+    const count = selectedOrderIds.length;
+    try {
+      if (onDeleteMultipleOrders) {
+        await onDeleteMultipleOrders(selectedOrderIds);
+      } else {
+        for (const id of selectedOrderIds) {
+          await onDeleteOrder(id);
+        }
+      }
+      setSelectedOrderIds([]);
+      setShowBulkDeleteModal(false);
+      setActionNotice(`✅ Berhasil menghapus ${count} pesanan terpilih.`);
+      setTimeout(() => setActionNotice(null), 3500);
+    } catch (err: any) {
+      setActionNotice(`❌ Gagal menghapus pesanan: ${err.message || 'Error'}`);
+      setTimeout(() => setActionNotice(null), 3500);
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -677,6 +735,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
+          {/* 🔘 TOOLBAR PILIH BANYAK PESANAN (MULTI-SELECT BAR) */}
+          {filteredOrders.length > 0 && (
+            <div className="bg-white rounded-2xl border border-stone-200 p-3 sm:p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
+              <div className="flex items-center gap-2.5">
+                <label className="flex items-center gap-2 font-bold text-stone-800 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={areAllFilteredSelected}
+                    onChange={handleToggleSelectAll}
+                    className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-stone-300 cursor-pointer accent-red-600"
+                  />
+                  <span>Pilih Semua ({filteredOrders.length})</span>
+                </label>
+
+                {selectedOrderIds.length > 0 && (
+                  <span className="bg-red-100 text-red-800 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-red-200 animate-in fade-in">
+                    {selectedOrderIds.length} pesanan terpilih
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedOrderIds.length > 0 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkDeleteModal(true)}
+                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
+                      title="Hapus semua transaksi yang sedang dicentang"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus ({selectedOrderIds.length}) Transaksi</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleClearSelection}
+                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-3 py-1.5 rounded-xl text-xs border border-stone-200 transition cursor-pointer"
+                    >
+                      Batal Pilih
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-[11px] text-stone-400">
+                    Centang transaksi untuk menghapus banyak sekaligus
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Orders List */}
           {filteredOrders.length === 0 ? (
             <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center text-stone-400 text-xs">
@@ -686,15 +795,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="space-y-3">
               {filteredOrders.map((order) => {
                 const customerWaUrl = createWhatsAppUrl(order.phone, `Halo kak ${order.nama}, terima kasih telah memesan di DIMSUMANYU! Mengenai pesanan #${order.id}...`);
+                const isSelected = selectedOrderIds.includes(order.id);
 
                 return (
                   <div
                     key={order.id}
-                    className="bg-white rounded-2xl border border-stone-200 p-4 shadow-xs space-y-3 transition hover:border-stone-300"
+                    className={`rounded-2xl border p-4 shadow-xs space-y-3 transition ${
+                      isSelected
+                        ? 'bg-red-50/40 border-red-400 ring-2 ring-red-500/20'
+                        : 'bg-white border-stone-200 hover:border-stone-300'
+                    }`}
                   >
                     {/* Header Row */}
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectOrder(order.id)}
+                          aria-label={`Pilih pesanan #${order.id}`}
+                          className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-stone-300 cursor-pointer accent-red-600 shrink-0"
+                        />
+
                         <span className="font-mono font-black text-xs text-stone-900 bg-stone-100 px-2.5 py-0.5 rounded-lg border border-stone-200">
                           #{order.id}
                         </span>
@@ -1233,6 +1355,80 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <span>{isDeleting ? 'Menghapus...' : 'Ya, Hapus'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔴 MODAL KONFIRMASI HAPUS BANYAK PESANAN SEKALIGUS */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 text-red-600 flex items-center justify-center mx-auto shadow-xs">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="font-black text-stone-900 text-base">
+                Hapus {selectedOrderIds.length} Pesanan Terpilih?
+              </h3>
+              <p className="text-xs text-stone-500 leading-relaxed">
+                Apakah Anda yakin ingin menghapus <b className="text-red-600">{selectedOrderIds.length} pesanan</b> yang dipilih sekaligus dari daftar kelola pesanan?
+              </p>
+              <p className="text-[11px] text-amber-800 bg-amber-50 rounded-xl p-2.5 border border-amber-200 text-left font-medium">
+                ⚠️ Pesanan yang dihapus akan segera dibersihkan dari daftar aktif di aplikasi.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 font-bold text-xs hover:bg-stone-50 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={handleConfirmBulkDelete}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md shadow-red-700/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isBulkDeleting ? 'Menghapus...' : `Ya, Hapus (${selectedOrderIds.length})`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📌 FLOATING STICKY SELECTION BAR (Muncul saat ada transaksi dicentang) */}
+      {selectedOrderIds.length > 0 && activeTab === 'orders' && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-stone-900/95 backdrop-blur-md text-white rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3 shadow-2xl border border-stone-800 flex items-center justify-between gap-3 sm:gap-5 animate-in slide-in-from-bottom-3 duration-200 max-w-[92vw]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+            <span className="text-xs sm:text-sm font-black truncate">
+              {selectedOrderIds.length} Pesanan Dipilih
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowBulkDeleteModal(true)}
+              className="bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-red-700/30 transition cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Hapus Terpilih</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs transition cursor-pointer"
+            >
+              Batal
+            </button>
           </div>
         </div>
       )}
