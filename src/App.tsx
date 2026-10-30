@@ -50,10 +50,26 @@ export default function App() {
       return INITIAL_SETTINGS;
     }
   });
+  // Deleted Order IDs Tombstone (Prevents deleted orders from re-appearing when Google Sheets syncs/polls)
+  const [deletedOrderIds, setDeletedOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_deleted_order_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [orders, setOrders] = useState<OrderData[]>(() => {
     try {
+      const savedDeleted = localStorage.getItem('dimsumanyu_deleted_order_ids');
+      const deletedSet = new Set(savedDeleted ? JSON.parse(savedDeleted) : []);
       const saved = localStorage.getItem('dimsumanyu_orders');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed: OrderData[] = JSON.parse(saved);
+        return parsed.filter(o => o && !deletedSet.has(o.id));
+      }
+      return [];
     } catch {
       return [];
     }
@@ -189,13 +205,23 @@ export default function App() {
   // Dedicated real-time order refresher across all devices (iPhone 13, iPhone 15, desktop, etc.)
   const fetchOrdersOnly = async () => {
     try {
+      const currentDeletedList: string[] = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('dimsumanyu_deleted_order_ids') || '[]');
+        } catch {
+          return [];
+        }
+      })();
+      const deletedSet = new Set(currentDeletedList);
+
       // 1. ALWAYS prioritize direct live fetch from Google Sheets (Central Source of Truth across all devices)
       const sheetOrders = await fetchDirectFromGoogleSheets();
       if (sheetOrders && Array.isArray(sheetOrders)) {
+        const validSheetOrders = sheetOrders.filter((o: OrderData) => o && !deletedSet.has(o.id));
         setOrders(prev => {
-          const remoteIds = new Set(sheetOrders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
-          const merged = enrichOrdersWithMenuPricing([...sheetOrders, ...localOnly], menuItems);
+          const remoteIds = new Set(validSheetOrders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !remoteIds.has(p.id) && !deletedSet.has(p.id));
+          const merged = enrichOrdersWithMenuPricing([...validSheetOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -211,10 +237,11 @@ export default function App() {
         .catch(() => null);
 
       if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
+        const validBackendOrders = resOrders.orders.filter((o: OrderData) => o && !deletedSet.has(o.id));
         setOrders(prev => {
-          const remoteIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
-          const merged = enrichOrdersWithMenuPricing([...resOrders.orders, ...localOnly], menuItems);
+          const remoteIds = new Set(validBackendOrders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !remoteIds.has(p.id) && !deletedSet.has(p.id));
+          const merged = enrichOrdersWithMenuPricing([...validBackendOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -231,23 +258,33 @@ export default function App() {
     setIsRefreshingOrders(true);
     setSyncFeedback(null);
     try {
+      const currentDeletedList: string[] = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('dimsumanyu_deleted_order_ids') || '[]');
+        } catch {
+          return [];
+        }
+      })();
+      const deletedSet = new Set(currentDeletedList);
+
       // 1. First pull on server if running in fullstack mode
       await fetch('/api/orders/pull-sheets').catch(() => null);
 
       // 2. Pull directly from Google Sheets
       const sheetOrders = await fetchDirectFromGoogleSheets();
       if (sheetOrders && Array.isArray(sheetOrders)) {
+        const validSheetOrders = sheetOrders.filter((o: OrderData) => o && !deletedSet.has(o.id));
         setOrders(prev => {
-          const remoteIds = new Set(sheetOrders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !remoteIds.has(p.id));
-          const merged = enrichOrdersWithMenuPricing([...sheetOrders, ...localOnly], menuItems);
+          const remoteIds = new Set(validSheetOrders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => p && !remoteIds.has(p.id) && !deletedSet.has(p.id));
+          const merged = enrichOrdersWithMenuPricing([...validSheetOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
           return merged;
         });
         setLastSyncedTime(new Date());
-        setSyncFeedback(`✅ Berhasil menyinkronkan ${sheetOrders.length} pesanan dari Google Sheets!`);
+        setSyncFeedback(`✅ Berhasil menyinkronkan ${validSheetOrders.length} pesanan dari Google Sheets!`);
       } else {
         await fetchOrdersOnly();
         if (sheetsScriptNeedsUpdate) {
@@ -742,17 +779,54 @@ export default function App() {
     }
   };
 
+  // Helper to notify Google Apps Script to delete rows from sheet 'Pesanan'
+  const notifyAppsScriptDelete = (orderIds: string[]) => {
+    const targetScriptUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+    if (!targetScriptUrl || orderIds.length === 0) return;
+    try {
+      const url = `${targetScriptUrl}?action=deleteOrders&orderIds=${encodeURIComponent(JSON.stringify(orderIds))}&_t=${Date.now()}`;
+      fetch(url, { method: 'GET', redirect: 'follow', mode: 'no-cors' }).catch(() => null);
+    } catch (e) {
+      console.warn('Apps Script delete ping error:', e);
+    }
+  };
+
   const handleDeleteOrder = async (id: string) => {
     try {
+      // 1. Add to tombstone deletedOrderIds list (permanently prevents Google Sheets re-polling from adding it back)
+      setDeletedOrderIds(prev => {
+        const next = Array.from(new Set([...prev, id]));
+        try {
+          localStorage.setItem('dimsumanyu_deleted_order_ids', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      // 2. Remove from local orders state and localStorage
       setOrders(prev => {
         const updated = prev.filter(o => o.id !== id);
-        localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        } catch {}
         return updated;
       });
 
+      // 3. Clean up customer local tracking
+      setMyOrderIds(prev => {
+        const updated = prev.filter(orderId => orderId !== id);
+        try {
+          localStorage.setItem('dimsumanyu_my_order_ids', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      // 4. Notify backend server
       try {
         await fetch(`/api/orders/${id}`, { method: 'DELETE' });
       } catch {}
+
+      // 5. Notify Google Apps Script
+      notifyAppsScriptDelete([id]);
     } catch (err: any) {
       console.error('Gagal menghapus pesanan:', err);
     }
@@ -762,13 +836,26 @@ export default function App() {
     if (!ids || ids.length === 0) return;
     try {
       const idSet = new Set(ids);
+
+      // 1. Add all to tombstone deletedOrderIds list
+      setDeletedOrderIds(prev => {
+        const next = Array.from(new Set([...prev, ...ids]));
+        try {
+          localStorage.setItem('dimsumanyu_deleted_order_ids', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      // 2. Remove from local orders state and localStorage
       setOrders(prev => {
         const updated = prev.filter(o => !idSet.has(o.id));
-        localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(updated));
+        } catch {}
         return updated;
       });
 
-      // Also clean up local customer tracking IDs if any
+      // 3. Clean up local customer tracking IDs if any
       setMyOrderIds(prev => {
         const updated = prev.filter(id => !idSet.has(id));
         try {
@@ -777,6 +864,7 @@ export default function App() {
         return updated;
       });
 
+      // 4. Notify backend server
       try {
         await fetch('/api/orders/bulk-delete', {
           method: 'POST',
@@ -784,6 +872,9 @@ export default function App() {
           body: JSON.stringify({ ids }),
         });
       } catch {}
+
+      // 5. Notify Google Apps Script
+      notifyAppsScriptDelete(ids);
     } catch (err: any) {
       console.error('Gagal menghapus beberapa pesanan:', err);
       throw err;

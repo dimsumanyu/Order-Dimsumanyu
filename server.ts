@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 const PORT = 3000;
 const DATA_DIR = path.resolve(__dirname, 'data_store');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const DELETED_ORDERS_FILE = path.join(DATA_DIR, 'deleted_orders.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const MENU_FILE = path.join(DATA_DIR, 'menu.json');
 
@@ -43,7 +44,8 @@ function saveJSON<T>(filePath: string, data: T) {
 
 let settings: AppSettings = loadJSON<AppSettings>(SETTINGS_FILE, INITIAL_SETTINGS);
 let menu: MenuItem[] = loadJSON<MenuItem[]>(MENU_FILE, INITIAL_MENU);
-let orders: OrderData[] = loadJSON<OrderData[]>(ORDERS_FILE, []);
+let deletedOrderIds: string[] = loadJSON<string[]>(DELETED_ORDERS_FILE, []);
+let orders: OrderData[] = loadJSON<OrderData[]>(ORDERS_FILE, []).filter(o => !deletedOrderIds.includes(o.id));
 
 // Helper to push order to Google Apps Script
 async function sendToAppsScript(order: OrderData, scriptUrl: string) {
@@ -266,9 +268,10 @@ async function startServer() {
       const json = await sheetsRes.json();
       if (json && json.success && Array.isArray(json.orders)) {
         const existingIds = new Set(orders.map(o => o.id));
+        const deletedSet = new Set(deletedOrderIds);
         let addedCount = 0;
         json.orders.forEach((sheetOrd: any) => {
-          if (sheetOrd && sheetOrd.id && !existingIds.has(sheetOrd.id)) {
+          if (sheetOrd && sheetOrd.id && !existingIds.has(sheetOrd.id) && !deletedSet.has(sheetOrd.id)) {
             orders.unshift(sheetOrd);
             existingIds.add(sheetOrd.id);
             addedCount++;
@@ -372,8 +375,19 @@ async function startServer() {
 
   app.delete('/api/orders/:id', (req, res) => {
     const { id } = req.params;
+    if (id && !deletedOrderIds.includes(id)) {
+      deletedOrderIds.push(id);
+      saveJSON(DELETED_ORDERS_FILE, deletedOrderIds);
+    }
     orders = orders.filter(o => o.id !== id);
     saveJSON(ORDERS_FILE, orders);
+
+    // Notify Apps Script in background
+    if (settings.appsScriptUrl) {
+      const url = `${settings.appsScriptUrl}?action=deleteOrders&orderIds=${encodeURIComponent(JSON.stringify([id]))}`;
+      fetch(url, { redirect: 'follow' }).catch(() => null);
+    }
+
     res.json({ success: true, orders });
   });
 
@@ -381,8 +395,20 @@ async function startServer() {
     const { ids } = req.body;
     if (Array.isArray(ids) && ids.length > 0) {
       const idSet = new Set(ids);
+      for (const id of ids) {
+        if (!deletedOrderIds.includes(id)) {
+          deletedOrderIds.push(id);
+        }
+      }
+      saveJSON(DELETED_ORDERS_FILE, deletedOrderIds);
       orders = orders.filter(o => !idSet.has(o.id));
       saveJSON(ORDERS_FILE, orders);
+
+      // Notify Apps Script in background
+      if (settings.appsScriptUrl) {
+        const url = `${settings.appsScriptUrl}?action=deleteOrders&orderIds=${encodeURIComponent(JSON.stringify(ids))}`;
+        fetch(url, { redirect: 'follow' }).catch(() => null);
+      }
     }
     res.json({ success: true, orders });
   });

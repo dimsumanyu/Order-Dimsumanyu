@@ -394,12 +394,33 @@ function doGet(e) {
       status: uStatus
     })).setMimeType(ContentService.MimeType.JSON);
   }
+
+  // 8. Hapus pesanan dari sheet 'Pesanan' via GET/Webhook
+  if (action === 'deleteOrder' || action === 'deleteOrders' || action === 'bulkDelete') {
+    var rawIds = e.parameter.orderIds || e.parameter.id || e.parameter.orderId;
+    var idsToDelete = [];
+    if (rawIds) {
+      try {
+        var parsed = JSON.parse(rawIds);
+        if (Array.isArray(parsed)) idsToDelete = parsed;
+        else idsToDelete = [String(parsed)];
+      } catch (parseE) {
+        idsToDelete = String(rawIds).split(',').map(function(s) { return s.trim(); });
+      }
+    }
+    var delCount = deleteOrdersFromSheet(idsToDelete);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      deletedCount: delCount,
+      message: "Berhasil menghapus " + delCount + " baris pesanan dari sheet Pesanan."
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
   
-  // 8. Status ping
+  // 9. Status ping
   return ContentService.createTextOutput(JSON.stringify({
     status: "ok",
     app: "DIMSUMANYU",
-    version: "2.2",
+    version: "2.3",
     message: "Google Apps Script aktif & terhubung dengan sheet Pesanan & Admin User!",
     timestamp: new Date().toISOString()
   })).setMimeType(ContentService.MimeType.JSON);
@@ -742,5 +763,38 @@ function getPesananFromSheet() {
 
   // Urutkan dari yang paling baru
   return orders.reverse();
+}
+
+/**
+ * Menghapus baris pesanan dari sheet 'Pesanan' berdasarkan ID pesanan
+ */
+function deleteOrdersFromSheet(ids) {
+  if (!ids || ids.length === 0) return 0;
+  var ss = getTargetSpreadsheet();
+  var sheet = findPesananSheet(ss);
+  if (!sheet) return 0;
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return 0;
+  
+  var colMap = mapHeaders(data[0]);
+  var idCol = colMap.id;
+  
+  var idSet = {};
+  for (var i = 0; i < ids.length; i++) {
+    var raw = String(ids[i]).trim().toLowerCase();
+    if (raw) idSet[raw] = true;
+  }
+  
+  var deletedCount = 0;
+  // Looping dari baris paling bawah ke atas agar nomor baris tidak bergeser saat dihapus
+  for (var r = data.length - 1; r >= 1; r--) {
+    var cellId = String(data[r][idCol] || "").trim().toLowerCase();
+    if (idSet[cellId]) {
+      sheet.deleteRow(r + 1);
+      deletedCount++;
+    }
+  }
+  return deletedCount;
 }
 `;
