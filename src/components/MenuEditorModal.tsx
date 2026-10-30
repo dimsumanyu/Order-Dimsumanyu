@@ -11,10 +11,50 @@ import {
   RotateCcw,
   UtensilsCrossed,
   Sparkles,
-  Tag
+  Tag,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { MenuItem } from '../types';
 import { formatRupiah } from '../utils/whatsapp';
+
+function compressImageFile(file: File, maxWidth = 600, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxWidth) {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 interface MenuEditorModalProps {
   isOpen: boolean;
@@ -58,6 +98,8 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
   const [customKategori, setCustomKategori] = useState('');
   const [formHarga, setFormHarga] = useState<number>(25000);
   const [formKeterangan, setFormKeterangan] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [formStatus, setFormStatus] = useState<'TERSEDIA' | 'HABIS'>('TERSEDIA');
   const [formIsBestSeller, setFormIsBestSeller] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -98,6 +140,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
     setCustomKategori('');
     setFormHarga(25000);
     setFormKeterangan('');
+    setFormImageUrl('');
     setFormStatus('TERSEDIA');
     setFormIsBestSeller(false);
     setIsFormOpen(true);
@@ -115,6 +158,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
     }
     setFormHarga(item.harga);
     setFormKeterangan(item.keterangan || '');
+    setFormImageUrl(item.imageUrl || '');
     setFormStatus(item.status);
     setFormIsBestSeller(!!item.isBestSeller);
     setIsFormOpen(true);
@@ -148,6 +192,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
       status: formStatus,
       keterangan: formKeterangan.trim(),
       isBestSeller: formIsBestSeller,
+      imageUrl: formImageUrl.trim() || undefined,
     };
 
     setIsSaving(true);
@@ -268,54 +313,68 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
             filteredItems.map((item) => (
               <div
                 key={item.id}
-                className="py-3 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-stone-50/80 rounded-xl transition"
+                className="py-3 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/80 rounded-xl transition"
               >
-                {/* Left: Info */}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-extrabold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md uppercase">
-                      {item.kategori}
-                    </span>
-
-                    {/* Best Seller Pill / Button */}
-                    <button
-                      type="button"
-                      onClick={() => onToggleBestSeller(item.id)}
-                      className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border transition cursor-pointer ${
-                        item.isBestSeller
-                          ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
-                          : 'bg-stone-100 text-stone-400 border-stone-200 hover:text-amber-700 hover:border-amber-200'
-                      }`}
-                      title={
-                        item.isBestSeller
-                          ? 'Klik untuk batalkan status Best Seller'
-                          : 'Klik untuk jadikan produk Best Seller'
-                      }
-                    >
-                      <Star
-                        className={`w-3 h-3 ${
-                          item.isBestSeller
-                            ? 'fill-amber-500 text-amber-500'
-                            : 'text-stone-400'
-                        }`}
+                {/* Left: Thumbnail & Info */}
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center shrink-0">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.nama}
+                        className="w-full h-full object-cover"
                       />
-                      <span>{item.isBestSeller ? 'BEST SELLER' : 'Set Best Seller'}</span>
-                    </button>
+                    ) : (
+                      <span className="text-xl">🥟</span>
+                    )}
                   </div>
 
-                  <p className="font-extrabold text-stone-900 text-xs sm:text-sm">
-                    {item.nama}
-                  </p>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-extrabold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md uppercase">
+                        {item.kategori}
+                      </span>
 
-                  {item.keterangan && (
-                    <p className="text-[11px] text-stone-500 line-clamp-1">
-                      {item.keterangan}
+                      {/* Best Seller Pill / Button */}
+                      <button
+                        type="button"
+                        onClick={() => onToggleBestSeller(item.id)}
+                        className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border transition cursor-pointer ${
+                          item.isBestSeller
+                            ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
+                            : 'bg-stone-100 text-stone-400 border-stone-200 hover:text-amber-700 hover:border-amber-200'
+                        }`}
+                        title={
+                          item.isBestSeller
+                            ? 'Klik untuk batalkan status Best Seller'
+                            : 'Klik untuk jadikan produk Best Seller'
+                        }
+                      >
+                        <Star
+                          className={`w-3 h-3 ${
+                            item.isBestSeller
+                              ? 'fill-amber-500 text-amber-500'
+                              : 'text-stone-400'
+                          }`}
+                        />
+                        <span>{item.isBestSeller ? 'BEST SELLER' : 'Set Best Seller'}</span>
+                      </button>
+                    </div>
+
+                    <p className="font-extrabold text-stone-900 text-xs sm:text-sm">
+                      {item.nama}
                     </p>
-                  )}
 
-                  <p className="text-red-600 font-black text-xs sm:text-sm">
-                    {formatRupiah(item.harga)}
-                  </p>
+                    {item.keterangan && (
+                      <p className="text-[11px] text-stone-500 line-clamp-1">
+                        {item.keterangan}
+                      </p>
+                    )}
+
+                    <p className="text-red-600 font-black text-xs sm:text-sm">
+                      {formatRupiah(item.harga)}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Right: Quick Toggles & Edit/Delete */}
@@ -490,6 +549,84 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
                   placeholder="Contoh: Dimsum kukus isi daging ayam murni, lembut & gurih, disajikan dengan saus chili oil."
                   className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 focus:border-red-600 focus:bg-white outline-none text-stone-800"
                 />
+              </div>
+
+              {/* 📸 FOTO / GAMBAR MENU */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-stone-800 text-xs">
+                    Foto / Gambar Menu (Opsional)
+                  </label>
+                  {formImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormImageUrl('')}
+                      className="text-[10.5px] text-red-600 hover:text-red-800 font-extrabold cursor-pointer"
+                    >
+                      ✕ Hapus Foto
+                    </button>
+                  )}
+                </div>
+
+                {/* Live Preview Foto */}
+                {formImageUrl && (
+                  <div className="relative w-full h-36 rounded-xl overflow-hidden border border-stone-300 bg-stone-200">
+                    <img
+                      src={formImageUrl}
+                      alt="Preview Menu"
+                      className="w-full h-full object-cover"
+                      onError={() => alert('Gagal memuat URL gambar. Pastikan link dapat diakses publik.')}
+                    />
+                    <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                      Preview Foto Menu
+                    </div>
+                  </div>
+                )}
+
+                {/* Opsi 1: Upload dari Perangkat (Kamera / Galeri HP) */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <label className="flex-1 bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold px-3 py-2 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition active:scale-98">
+                    <Upload className="w-4 h-4 text-red-600" />
+                    <span>{isUploadingImage ? 'Memproses Foto...' : '📷 Pilih Foto dari Galeri / Kamera'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isUploadingImage}
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setIsUploadingImage(true);
+                        try {
+                          const compressed = await compressImageFile(file, 600, 0.82);
+                          setFormImageUrl(compressed);
+                        } catch (err) {
+                          alert('Gagal memproses file foto.');
+                        } finally {
+                          setIsUploadingImage(false);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* Opsi 2: Tempel Link URL Foto Online */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1 text-[10.5px] font-bold text-stone-500">
+                    <ImageIcon className="w-3 h-3 text-stone-400" />
+                    <span>Atau tempel link URL foto langsung:</span>
+                  </div>
+                  <input
+                    type="url"
+                    value={formImageUrl.startsWith('data:') ? '' : formImageUrl}
+                    onChange={(e) => setFormImageUrl(e.target.value)}
+                    placeholder="https://contoh-gambar.com/dimsum.jpg atau Google Drive"
+                    className="w-full px-3 py-1.5 rounded-xl bg-white border border-stone-200 focus:border-red-600 outline-none text-xs font-mono text-stone-800 placeholder:text-stone-400"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    Foto yang dimasukkan akan tampil di kotak atas kartu menu pembeli.
+                  </p>
+                </div>
               </div>
 
               {/* Status Stok & Best Seller */}

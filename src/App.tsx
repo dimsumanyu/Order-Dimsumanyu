@@ -1005,7 +1005,7 @@ export default function App() {
           onOpenTrackOrder={() => setShowTrackSearchModal(true)}
         />
 
-        <main className="max-w-4xl mx-auto px-3 sm:px-4 py-3.5 sm:py-5 space-y-4 sm:space-y-5 w-full max-w-full">
+        <main className="max-w-4xl mx-auto px-2 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-5 w-full max-w-full">
           {activeView === 'order' || !isAdminLoggedIn ? (
             <>
               {currentStep === 1 ? (
@@ -1029,7 +1029,7 @@ export default function App() {
                       Tidak ada menu yang sesuai dengan pencarian Anda.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3.5">
                       {filteredMenuItems.map(item => (
                         <MenuCard
                           key={item.id}

@@ -7,6 +7,7 @@ export interface MenuItem {
   status: 'TERSEDIA' | 'HABIS';
   keterangan: string;
   isBestSeller?: boolean;
+  imageUrl?: string;
 }
 
 export interface CartItem {
