@@ -12,10 +12,13 @@ import {
   Check,
   Download,
   Send,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Navigation
 } from 'lucide-react';
 import { MenuItem, ShippingOption, PaymentMethod, OrderData, AppSettings } from '../types';
 import { formatRupiah } from '../utils/whatsapp';
+import { LocationPickerModal } from './LocationPickerModal';
 
 interface CheckoutFormProps {
   cart: Record<string, number>;
@@ -27,6 +30,9 @@ interface CheckoutFormProps {
     phone: string;
     opsiPengiriman: ShippingOption;
     alamat: string;
+    locationLat?: number;
+    locationLng?: number;
+    mapsUrl?: string;
     metodeBayar: PaymentMethod;
     catatan: string;
   }) => Promise<void>;
@@ -48,6 +54,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [metodeBayar, setMetodeBayar] = useState<PaymentMethod>('QRIS');
   const [catatan, setCatatan] = useState('');
   const [copiedBank, setCopiedBank] = useState(false);
+
+  // Free Map Location Pin State (Leaflet -> Google Maps link)
+  const [showMapModal, setShowMapModal] = useState<boolean>(false);
+  const [locationLat, setLocationLat] = useState<number | undefined>();
+  const [locationLng, setLocationLng] = useState<number | undefined>();
+  const [mapsUrl, setMapsUrl] = useState<string | undefined>();
 
   const cartEntries = Object.entries(cart).filter(([_, qty]) => qty > 0);
   const totalAmount = cartEntries.reduce((sum, [id, qty]) => {
@@ -89,6 +101,9 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       phone: phone.trim(),
       opsiPengiriman: shippingOption,
       alamat: alamat.trim(),
+      locationLat,
+      locationLng,
+      mapsUrl,
       metodeBayar,
       catatan: catatan.trim(),
     });
@@ -217,6 +232,9 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 onClick={() => {
                   setShippingOption('Ambil di Outlet');
                   setAlamat('Ambil langsung di Outlet DIMSUMANYU');
+                  setLocationLat(undefined);
+                  setLocationLng(undefined);
+                  setMapsUrl(undefined);
                 }}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   shippingOption === 'Ambil di Outlet'
@@ -229,11 +247,87 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
             </div>
           </div>
 
+          {/* 📍 Titik Lokasi Peta (Google Maps) Khusus Diantar ke Alamat */}
+          {shippingOption === 'Diantar ke Alamat' && (
+            <div className="bg-red-50/70 border border-red-200 rounded-2xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-red-600" />
+                  <span className="font-extrabold text-xs text-stone-900">
+                    Titik Lokasi Peta (Google Maps)
+                  </span>
+                </div>
+
+                {mapsUrl && (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-700" />
+                    <span>Titik Terpasang</span>
+                  </span>
+                )}
+              </div>
+
+              {mapsUrl ? (
+                <div className="bg-white p-3 rounded-xl border border-red-200 space-y-2 text-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="text-[11px] font-mono font-bold text-stone-700">
+                      📍 {locationLat?.toFixed(6)}, {locationLng?.toFixed(6)}
+                    </span>
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 transition"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Cek di Google Maps ↗</span>
+                    </a>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowMapModal(true)}
+                      className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-1.5 px-3 rounded-lg text-xs transition cursor-pointer"
+                    >
+                      Ubah Titik Lokasi Peta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationLat(undefined);
+                        setLocationLng(undefined);
+                        setMapsUrl(undefined);
+                      }}
+                      className="text-stone-400 hover:text-red-600 font-bold px-2 py-1.5 text-xs transition cursor-pointer"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-stone-600 leading-relaxed">
+                    Pasang pin lokasi rumah Anda pada peta. Link Google Maps otomatis dikirimkan ke WhatsApp penjual agar kurir langsung menuju ke depan rumah Anda tanpa tersasar.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowMapModal(true)}
+                    className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span>📍 Buka Peta &amp; Pilih Titik Pengantaran</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Address / Pickup Notes */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                {shippingOption === 'Ambil di Outlet' ? 'Lokasi Pengambilan *' : 'Alamat Pengiriman Lengkap *'}
+                {shippingOption === 'Ambil di Outlet' ? 'Lokasi Pengambilan *' : 'Detail Alamat & Patokan Rumah *'}
               </label>
               {shippingOption === 'Ambil di Outlet' && (
                 <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -418,6 +512,22 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           </div>
         </form>
       </section>
+
+      {/* 🗺️ MODAL PILIH TITIK PETA (GRATIS) */}
+      <LocationPickerModal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        initialLat={locationLat}
+        initialLng={locationLng}
+        onSelectLocation={(data) => {
+          setLocationLat(data.lat);
+          setLocationLng(data.lng);
+          setMapsUrl(data.mapsUrl);
+          if (data.addressHint && (!alamat || alamat.trim() === '')) {
+            setAlamat(data.addressHint);
+          }
+        }}
+      />
     </div>
   );
 };

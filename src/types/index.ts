@@ -30,6 +30,9 @@ export interface OrderData {
   phone: string;
   opsiPengiriman: ShippingOption;
   alamat: string;
+  locationLat?: number;
+  locationLng?: number;
+  mapsUrl?: string;
   metodeBayar: PaymentMethod;
   catatan?: string;
   rincianMenu: string;

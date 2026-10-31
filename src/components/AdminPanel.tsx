@@ -922,6 +922,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <p className="text-stone-500 text-[11px] mt-1">
                           <b>{order.opsiPengiriman}:</b> {order.alamat}
                         </p>
+                        {order.mapsUrl && (
+                          <div className="mt-1">
+                            <a
+                              href={order.mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-700 font-extrabold text-[10.5px] px-2 py-0.5 rounded-lg border border-red-200 transition"
+                              title="Buka titik lokasi pengantaran di Google Maps"
+                            >
+                              <ExternalLink className="w-3 h-3 text-red-600" />
+                              <span>📍 Buka Titik di Google Maps ↗</span>
+                            </a>
+                          </div>
+                        )}
                         {order.catatan && (
                           <p className="text-stone-500 text-[11px] italic mt-0.5">
                             <b>Catatan:</b> {order.catatan}

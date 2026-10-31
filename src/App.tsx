@@ -522,6 +522,9 @@ export default function App() {
     phone: string;
     opsiPengiriman: ShippingOption;
     alamat: string;
+    locationLat?: number;
+    locationLng?: number;
+    mapsUrl?: string;
     metodeBayar: PaymentMethod;
     catatan: string;
   }) => {
@@ -551,6 +554,9 @@ export default function App() {
         phone: formData.phone.trim(),
         opsiPengiriman: formData.opsiPengiriman,
         alamat: formData.alamat.trim(),
+        locationLat: formData.locationLat,
+        locationLng: formData.locationLng,
+        mapsUrl: formData.mapsUrl,
         metodeBayar: formData.metodeBayar,
         catatan: formData.catatan.trim(),
         rincianMenu: rincianText,

@@ -16,6 +16,9 @@ export function generateWhatsAppMessage(order: OrderData): string {
   
   const addressLabel = order.opsiPengiriman === 'Ambil di Outlet' ? 'Keterangan Ambil' : 'Alamat';
   message += `• *${addressLabel}:* ${order.alamat}\n`;
+  if (order.mapsUrl) {
+    message += `• *📍 Titik Peta Google Maps:* ${order.mapsUrl}\n`;
+  }
   message += `• *Metode Bayar:* ${order.metodeBayar}\n`;
   if (order.catatan) {
     message += `• *Catatan:* ${order.catatan}\n`;

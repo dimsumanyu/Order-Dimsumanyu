@@ -10,7 +10,8 @@ import {
   MapPin,
   CreditCard,
   Lock,
-  ArrowRight
+  ArrowRight,
+  ExternalLink
 } from 'lucide-react';
 import { OrderData, OrderStatus, AppSettings } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
@@ -252,6 +253,20 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
                 <span>Lokasi / Keterangan:</span>
                 <span className="font-bold text-stone-900 text-right max-w-[200px] truncate">{order.alamat}</span>
               </div>
+              {order.mapsUrl && (
+                <div className="flex justify-between items-center py-0.5">
+                  <span>Titik Peta:</span>
+                  <a
+                    href={order.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-lg border border-red-200 transition"
+                  >
+                    <MapPin className="w-3 h-3 text-red-600" />
+                    <span>Buka Google Maps ↗</span>
+                  </a>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Metode Pembayaran:</span>
                 <span className="font-bold text-stone-900">{order.metodeBayar}</span>
