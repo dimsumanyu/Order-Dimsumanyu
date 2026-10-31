@@ -155,8 +155,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     text += `Tanggal  : ${orderDate}\n`;
     text += `Nama     : ${order.nama}\n`;
     text += `No. HP   : ${order.phone}\n`;
-    text += `Layanan  : ${order.opsiPengiriman}\n`;
-    if (order.opsiPengiriman === 'Diantar ke Alamat') {
+    if (order.opsiPengiriman === 'Diantar ke Alamat' && order.alamat) {
       text += `Alamat   : ${order.alamat}\n`;
     }
     text += `Bayar    : ${order.metodeBayar}\n`;
@@ -239,8 +238,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     lines.push(`Tanggal  : ${orderDate}`);
     lines.push(`Nama     : ${order.nama}`);
     lines.push(`No. HP   : ${order.phone}`);
-    lines.push(`Layanan  : ${order.opsiPengiriman}`);
-    if (order.opsiPengiriman === 'Diantar ke Alamat') {
+    if (order.opsiPengiriman === 'Diantar ke Alamat' && order.alamat) {
       lines.push(`Alamat   : ${order.alamat}`);
     }
     lines.push(`Bayar    : ${order.metodeBayar}`);
@@ -641,11 +639,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   <span>HP    :</span>
                   <span>{order.phone}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>OPSI  :</span>
-                  <span className="font-bold uppercase">{order.opsiPengiriman}</span>
-                </div>
-                {order.opsiPengiriman === 'Diantar ke Alamat' && (
+                {order.opsiPengiriman === 'Diantar ke Alamat' && order.alamat && (
                   <div className="pt-0.5">
                     <span className="block text-[9px]">ALAMAT PENGIRIMAN:</span>
                     <span className="font-medium text-[9px] break-words">{order.alamat}</span>
