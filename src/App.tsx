@@ -228,10 +228,18 @@ export default function App() {
         cleanAlamat = order.opsiPengiriman === 'Ambil di Outlet' ? 'Ambil langsung di Outlet DIMSUMANYU' : '';
       }
 
+      // Ensure ongkir is accurately set and never biased if order was synced from sheets or older format
+      const itemsSubtotal = updatedItems.reduce((sum, it) => sum + (it.subtotal || (it.harga * it.qty)), 0);
+      let cleanOngkir = Number(order.ongkir) || 0;
+      if (cleanOngkir === 0 && order.opsiPengiriman === 'Diantar ke Alamat' && order.totalHarga > itemsSubtotal && itemsSubtotal > 0) {
+        cleanOngkir = Math.max(0, order.totalHarga - itemsSubtotal);
+      }
+
       return {
         ...order,
         alamat: cleanAlamat,
         items: updatedItems,
+        ongkir: cleanOngkir,
       };
     });
   };
@@ -600,6 +608,7 @@ export default function App() {
     locationLat?: number;
     locationLng?: number;
     mapsUrl?: string;
+    ongkir?: number;
     metodeBayar: PaymentMethod;
     catatan: string;
   }) => {
@@ -623,6 +632,9 @@ export default function App() {
       const pad = (n: number) => n.toString().padStart(2, '0');
       const generatedOrderId = `DAN-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 
+      const deliveryOngkir = formData.opsiPengiriman === 'Diantar ke Alamat' ? Math.max(0, formData.ongkir || 0) : 0;
+      const combinedTotal = totalCartAmount + deliveryOngkir;
+
       let finalOrder: OrderData = {
         id: generatedOrderId,
         nama: formData.nama.trim(),
@@ -632,10 +644,11 @@ export default function App() {
         locationLat: formData.locationLat,
         locationLng: formData.locationLng,
         mapsUrl: formData.mapsUrl,
+        ongkir: deliveryOngkir,
         metodeBayar: formData.metodeBayar,
         catatan: formData.catatan.trim(),
         rincianMenu: rincianText,
-        totalHarga: totalCartAmount,
+        totalHarga: combinedTotal,
         items: orderItems,
         createdAt: now.toISOString(),
         status: 'Menunggu payment',

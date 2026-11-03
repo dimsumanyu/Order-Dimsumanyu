@@ -33,6 +33,7 @@ export interface OrderData {
   locationLat?: number;
   locationLng?: number;
   mapsUrl?: string;
+  ongkir?: number;
   metodeBayar: PaymentMethod;
   catatan?: string;
   rincianMenu: string;

@@ -14,7 +14,9 @@ import {
   Send,
   Loader2,
   ExternalLink,
-  Navigation
+  Navigation,
+  MessageCircle,
+  Info
 } from 'lucide-react';
 import { MenuItem, ShippingOption, PaymentMethod, OrderData, AppSettings } from '../types';
 import { formatRupiah } from '../utils/whatsapp';
@@ -33,6 +35,7 @@ interface CheckoutFormProps {
     locationLat?: number;
     locationLng?: number;
     mapsUrl?: string;
+    ongkir?: number;
     metodeBayar: PaymentMethod;
     catatan: string;
   }) => Promise<void>;
@@ -51,6 +54,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [phone, setPhone] = useState('');
   const [shippingOption, setShippingOption] = useState<ShippingOption>('Diantar ke Alamat');
   const [alamat, setAlamat] = useState('');
+  const [ongkir, setOngkir] = useState<number>(0);
+  const [ongkirInput, setOngkirInput] = useState<string>('0');
   const [metodeBayar, setMetodeBayar] = useState<PaymentMethod>('QRIS');
   const [catatan, setCatatan] = useState('');
   const [copiedBank, setCopiedBank] = useState(false);
@@ -67,6 +72,28 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     return sum + (item ? item.harga * qty : 0);
   }, 0);
   const totalItems = cartEntries.reduce((sum, [_, qty]) => sum + qty, 0);
+
+  // Effective Ongkir is 0 if pickup, otherwise user-confirmed ongkir
+  const effectiveOngkir = shippingOption === 'Diantar ke Alamat' ? Math.max(0, ongkir || 0) : 0;
+  const finalTotalAmount = totalAmount + effectiveOngkir;
+
+  const handleOngkirChange = (valStr: string) => {
+    setOngkirInput(valStr);
+    const parsed = parseInt(valStr.replace(/[^0-9]/g, ''), 10);
+    setOngkir(isNaN(parsed) ? 0 : parsed);
+  };
+
+  const handleSelectPresetOngkir = (val: number) => {
+    setOngkir(val);
+    setOngkirInput(val.toString());
+  };
+
+  const handleAskOngkirWa = () => {
+    const cleanPhone = (settings.adminWaNumber || '085754623156').replace(/[^0-9]/g, '');
+    const addressHint = alamat.trim() ? `ke alamat: "${alamat.trim()}"` : 'ke alamat saya';
+    const message = `Halo Dimsumanyu! Saya mau pesan makanan dan ingin konfirmasi ongkos kirim ${addressHint} kira-kira berapa ya? Terima kasih.`;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   const handleCopyBank = () => {
     navigator.clipboard.writeText(settings.bankAccount);
@@ -104,6 +131,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       locationLat,
       locationLng,
       mapsUrl,
+      ongkir: effectiveOngkir,
       metodeBayar,
       catatan: catatan.trim(),
     });
@@ -152,9 +180,24 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           })}
         </div>
 
+        {shippingOption === 'Diantar ke Alamat' && (
+          <div className="border-t border-dashed border-red-200 pt-2 space-y-1 text-xs">
+            <div className="flex justify-between items-center text-stone-700">
+              <span>Subtotal Menu:</span>
+              <span className="font-bold">{formatRupiah(totalAmount)}</span>
+            </div>
+            <div className="flex justify-between items-center text-stone-700">
+              <span>Ongkos Kirim:</span>
+              <span className="font-bold text-red-700">
+                {effectiveOngkir > 0 ? formatRupiah(effectiveOngkir) : 'Rp 0'}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="border-t border-red-200 pt-2.5 flex justify-between items-center font-black text-stone-900 text-sm">
           <span>Total Pembayaran:</span>
-          <span className="text-red-600 text-base">{formatRupiah(totalAmount)}</span>
+          <span className="text-red-600 text-base">{formatRupiah(finalTotalAmount)}</span>
         </div>
       </section>
 
@@ -235,6 +278,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   setLocationLat(undefined);
                   setLocationLng(undefined);
                   setMapsUrl(undefined);
+                  setOngkir(0);
+                  setOngkirInput('0');
                 }}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   shippingOption === 'Ambil di Outlet'
@@ -352,6 +397,106 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
             </div>
           </div>
 
+          {/* 🛵 Ongkos Kirim (Konfirmasi Penjual) - Khusus Diantar ke Alamat */}
+          {shippingOption === 'Diantar ke Alamat' && (
+            <div className="bg-amber-50/80 border border-amber-300 rounded-2xl p-4 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-amber-700" />
+                  <span className="font-extrabold text-xs text-stone-900">
+                    Ongkos Kirim Pengantaran
+                  </span>
+                </div>
+                {effectiveOngkir > 0 ? (
+                  <span className="text-[10px] font-black text-amber-900 bg-amber-200/80 px-2.5 py-0.5 rounded-full border border-amber-300">
+                    + {formatRupiah(effectiveOngkir)}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-full border border-stone-200">
+                    Rp 0
+                  </span>
+                )}
+              </div>
+
+              {/* Notice Banner */}
+              <div className="bg-amber-100/70 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-amber-800 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-amber-950 leading-relaxed space-y-1">
+                  <p className="font-bold">
+                    Pastikan nominal ongkos kirim sudah dikonfirmasikan / didiskusikan dengan penjual terlebih dahulu.
+                  </p>
+                  <p className="text-[10.5px] text-amber-900">
+                    Belum tahu ongkir ke lokasi Anda? Klik tombol di bawah untuk bertanya langsung ke WhatsApp penjual.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Button: Tanya Ongkir via WhatsApp */}
+              <button
+                type="button"
+                onClick={handleAskOngkirWa}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>💬 Tanya Ongkir ke Penjual via WhatsApp</span>
+              </button>
+
+              {/* Input Nominal Ongkir */}
+              <div className="pt-1 space-y-1.5">
+                <label className="block text-[11px] font-bold text-stone-800">
+                  Nominal Ongkir yang Disepakati (Rp) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-stone-500">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={ongkirInput}
+                    onChange={(e) => handleOngkirChange(e.target.value)}
+                    placeholder="Contoh: 15000 (atau 0 jika gratis/sesuai kesepakatan)"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-white border border-amber-300 focus:border-amber-600 focus:ring-2 focus:ring-amber-200 outline-none text-xs text-stone-900 font-mono font-bold transition"
+                  />
+                </div>
+                <p className="text-[10px] text-stone-500 leading-normal">
+                  * Masukkan nominal ongkir yang telah dikonfirmasikan (misal: 10000, 15000, atau 20000). Jika ongkos kirim gratis atau 0, masukkan angka <b>0</b>.
+                </p>
+
+                {/* Quick Selection Chips */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] font-bold text-stone-500">Pilihan Cepat:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPresetOngkir(0)}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                      effectiveOngkir === 0
+                        ? 'bg-amber-700 text-white border-amber-800 shadow-xs'
+                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    }`}
+                  >
+                    Rp 0
+                  </button>
+                  {[10000, 15000, 20000, 25000].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => handleSelectPresetOngkir(val)}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                        effectiveOngkir === val
+                          ? 'bg-amber-700 text-white border-amber-800 shadow-xs'
+                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      {formatRupiah(val)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Payment Method */}
           <div>
             <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
@@ -407,7 +552,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   Scan QRIS DIMSUMANYU
                 </span>
                 <p className="text-xs text-stone-600">
-                  Total Tagihan: <b className="text-red-600 text-sm font-black">{formatRupiah(totalAmount)}</b>
+                  Total Tagihan: <b className="text-red-600 text-sm font-black">{formatRupiah(finalTotalAmount)}</b>
                 </p>
                 <p className="text-[11px] text-stone-500 mt-1 max-w-sm mx-auto">
                   Dapat di-scan menggunakan seluruh m-banking (BCA, BRI, Mandiri, BNI, BSI) & e-wallet (GoPay, OVO, ShopeePay, Dana).
@@ -471,7 +616,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 text-xs text-stone-700">
               <p className="font-bold text-stone-900">💵 Pembayaran Tunai</p>
               <p className="text-[11px] text-stone-500 mt-0.5">
-                Silakan siapkan uang pas sebesar <b className="text-red-700">{formatRupiah(totalAmount)}</b> saat pesanan diantar kurir atau diambil di outlet.
+                Silakan siapkan uang pas sebesar <b className="text-red-700">{formatRupiah(finalTotalAmount)}</b> saat pesanan diantar kurir atau diambil di outlet.
               </p>
             </div>
           )}

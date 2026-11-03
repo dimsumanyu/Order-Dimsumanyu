@@ -56,6 +56,7 @@ async function sendToAppsScript(order: OrderData, scriptUrl: string) {
       phone: order.phone,
       opsiPengiriman: order.opsiPengiriman,
       alamat: order.alamat,
+      ongkir: order.ongkir || 0,
       metodeBayar: order.metodeBayar,
       catatan: order.catatan || '',
       rincianMenu: order.rincianMenu,

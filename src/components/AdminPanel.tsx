@@ -1118,9 +1118,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <p className="text-stone-600 text-[11px]">
                           Metode: <b className="text-stone-900">{order.metodeBayar}</b>
                         </p>
-                        <p className="text-red-600 font-black text-sm">
-                          {formatRupiah(order.totalHarga)}
-                        </p>
+                        <div className="flex flex-col sm:items-end">
+                          <p className="text-red-600 font-black text-sm">
+                            {formatRupiah(order.totalHarga)}
+                          </p>
+                          {order.opsiPengiriman === 'Diantar ke Alamat' && (
+                            <span className="text-[10px] text-stone-500 font-semibold">
+                              {order.ongkir && order.ongkir > 0
+                                ? `(Termasuk Ongkir ${formatRupiah(order.ongkir)})`
+                                : '(Ongkir: Rp 0)'}
+                            </span>
+                          )}
+                        </div>
 
                         {/* Status selector, WA broadcast & CETAK RESI */}
                         <div className="flex flex-col sm:items-end gap-1.5 pt-1">

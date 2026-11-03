@@ -31,13 +31,26 @@ export function generateWhatsAppMessage(order: OrderData): string {
   });
 
   message += `-------------------------------------------\n`;
+  if (order.opsiPengiriman === 'Diantar ke Alamat') {
+    const itemsSubtotal = order.items && order.items.length > 0
+      ? order.items.reduce((sum, it) => sum + (it.subtotal || 0), 0)
+      : (order.totalHarga - (order.ongkir || 0));
+    const ongkirVal = order.ongkir || 0;
+    message += `• *Subtotal Menu:* ${formatRupiah(itemsSubtotal)}\n`;
+    if (ongkirVal > 0) {
+      message += `• *Ongkos Kirim:* ${formatRupiah(ongkirVal)}\n`;
+    } else {
+      message += `• *Ongkos Kirim:* Rp 0 (Bayar ke Driver saat sampai / COD)\n`;
+    }
+    message += `-------------------------------------------\n`;
+  }
   message += `*TOTAL PEMBAYARAN: ${formatRupiah(order.totalHarga)}*\n`;
   message += `-------------------------------------------\n`;
   
   if (order.metodeBayar === 'QRIS') {
     message += `_Status: QRIS (Sudah / Akan Discan)_\n`;
   } else if (order.metodeBayar === 'Transfer Bank') {
-    message += `_Status: Transfer Bank (Allo Bank 082254421916 a.n Nadia Rizka Kurnaini)_\n`;
+    message += `_Status: Transfer Bank (${order.totalHarga ? formatRupiah(order.totalHarga) : ''})_\n`;
   } else {
     message += `_Status: Tunai / COD_\n`;
   }

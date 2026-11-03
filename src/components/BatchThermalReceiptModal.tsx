@@ -135,6 +135,23 @@ export const BatchThermalReceiptModal: React.FC<BatchThermalReceiptModalProps> =
     }
 
     lines.push(divider);
+    const isDelivery = order.opsiPengiriman === 'Diantar ke Alamat';
+    const rawItemsSubtotal = order.items && order.items.length > 0
+      ? order.items.reduce((sum, it) => sum + getItemPricing(it).subtotal, 0)
+      : order.totalHarga;
+
+    let ongkirVal = Number(order.ongkir) || 0;
+    if (ongkirVal === 0 && isDelivery && order.totalHarga > rawItemsSubtotal && rawItemsSubtotal > 0) {
+      ongkirVal = Math.max(0, order.totalHarga - rawItemsSubtotal);
+    }
+    const displaySubtotal = isDelivery ? (order.totalHarga - ongkirVal) : rawItemsSubtotal;
+
+    if (isDelivery) {
+      lines.push(`SUBTOTAL: ${formatRupiah(displaySubtotal)}`);
+      lines.push(`ONGKIR: ${formatRupiah(ongkirVal)}`);
+      lines.push(divider);
+    }
+
     lines.push(`TOTAL: ${formatRupiah(order.totalHarga)}`);
 
     if (order.catatan) {
@@ -537,11 +554,39 @@ export const BatchThermalReceiptModal: React.FC<BatchThermalReceiptModalProps> =
                     {/* Dotted separator */}
                     <div className="border-b border-dashed border-black my-1.5" />
 
-                    {/* Total */}
-                    <div className="flex justify-between font-black text-[12px] pt-0.5">
-                      <span>TOTAL:</span>
-                      <span>{formatRupiah(order.totalHarga)}</span>
-                    </div>
+                    {/* Total / Breakdown */}
+                    {order.opsiPengiriman === 'Diantar ke Alamat' ? (() => {
+                      const rawSubtotal = order.items && order.items.length > 0
+                        ? order.items.reduce((sum, it) => sum + getItemPricing(it).subtotal, 0)
+                        : order.totalHarga;
+                      let ongkirVal = Number(order.ongkir) || 0;
+                      if (ongkirVal === 0 && order.totalHarga > rawSubtotal && rawSubtotal > 0) {
+                        ongkirVal = Math.max(0, order.totalHarga - rawSubtotal);
+                      }
+                      const displaySubtotal = order.totalHarga - ongkirVal;
+                      return (
+                        <div className="space-y-0.5 text-[10.5px]">
+                          <div className="flex justify-between text-stone-700">
+                            <span>SUBTOTAL:</span>
+                            <span>{formatRupiah(displaySubtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-stone-700">
+                            <span>ONGKIR:</span>
+                            <span>{formatRupiah(ongkirVal)}</span>
+                          </div>
+                          <div className="border-b border-dashed border-black my-1" />
+                          <div className="flex justify-between font-black text-[12px] pt-0.5">
+                            <span>TOTAL:</span>
+                            <span>{formatRupiah(order.totalHarga)}</span>
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <div className="flex justify-between font-black text-[12px] pt-0.5">
+                        <span>TOTAL:</span>
+                        <span>{formatRupiah(order.totalHarga)}</span>
+                      </div>
+                    )}
 
                     {/* Notes if any */}
                     {order.catatan && (
