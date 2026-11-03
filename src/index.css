@@ -17,18 +17,21 @@ html, body {
   scrollbar-width: none;  /* Firefox */
 }
 
-/* 58mm Thermal Printer Optimization */
+/* 58mm Thermal Printer Optimization - Zero Bottom Waste */
 @media print {
   @page {
     size: 58mm auto;
-    margin: 0mm;
+    margin: 0mm !important;
   }
 
   html, body {
     width: 58mm !important;
     max-width: 58mm !important;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
     background: #ffffff !important;
     color: #000000 !important;
     font-size: 11px !important;
@@ -39,23 +42,52 @@ html, body {
 
   /* Hide regular page elements */
   header, nav, footer, main, aside,
-  .no-print,
-  #root > *:not(#print-mount-point) {
+  .no-print {
     display: none !important;
   }
 
-  /* Make sure thermal print receipt is full width of 58mm */
+  /* Reset modal containers so they don't force viewport height or bottom spacing */
+  #thermal-receipt-modal {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 58mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  #thermal-receipt-modal > div {
+    max-width: 58mm !important;
+    width: 58mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+  }
+
+  /* Make sure thermal print receipt is full width of 58mm with ultra-compact zero waste */
   .thermal-receipt-printable {
     display: block !important;
     position: static !important;
     width: 54mm !important;
     max-width: 54mm !important;
     margin: 0 auto !important;
-    padding: 1.5mm 1mm 4mm 1mm !important;
+    padding: 1mm 1mm 1.5mm 1mm !important;
     background: #ffffff !important;
     color: #000000 !important;
     font-family: 'Courier New', Courier, monospace !important;
+    box-shadow: none !important;
+    border: none !important;
     page-break-after: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   /* Make sure thermal print receipt logo is pure high-contrast black on white */

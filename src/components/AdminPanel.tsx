@@ -23,7 +23,10 @@ import {
   Printer,
   BarChart3,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  FileText,
+  Calendar,
+  Layers
 } from 'lucide-react';
 import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
@@ -31,6 +34,8 @@ import { ThermalReceiptModal } from './ThermalReceiptModal';
 import { FinancialReportModal } from './FinancialReportModal';
 import { PrinterSetupModal } from './PrinterSetupModal';
 import { MenuEditorModal } from './MenuEditorModal';
+import { OrderSummaryModal } from './OrderSummaryModal';
+import { BatchThermalReceiptModal } from './BatchThermalReceiptModal';
 import { ErrorBoundary } from './ErrorBoundary';
 
 function parseDateSafe(val: any): Date | null {
@@ -104,15 +109,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
 
+  // Date Filter State
+  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    try {
+      return new Date().toISOString().split('T')[0];
+    } catch {
+      return '2026-11-03';
+    }
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    try {
+      return new Date().toISOString().split('T')[0];
+    } catch {
+      return '2026-11-03';
+    }
+  });
+
+  // Summary Seluruh Pesanan Modal State
+  const [showOrderSummaryModal, setShowOrderSummaryModal] = useState<boolean>(false);
+
+  // Batch Thermal Receipt Modal State (Cetak Semua Resi)
+  const [showBatchReceiptModal, setShowBatchReceiptModal] = useState<boolean>(false);
+  const [batchReceiptOrders, setBatchReceiptOrders] = useState<OrderData[]>([]);
+
   // Menu Editor Modal State (Tambah, Kurangi/Hapus, Best Seller, Stok)
   const [showMenuEditorModal, setShowMenuEditorModal] = useState<boolean>(false);
 
-  // Multi-Select Orders State (Bulk Delete)
+  // Multi-Select Orders State (Bulk Delete & Bulk Print)
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
 
-  // Thermal Receipt Modal State (58mm printer)
+  // Thermal Receipt Modal State (58mm printer single)
   const [orderForReceipt, setOrderForReceipt] = useState<OrderData | null>(null);
 
   // Financial Report Modal State (Laporan Keuangan & Best Seller)
@@ -166,7 +195,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const syncedCount = orders.filter(o => o.syncedToSheets).length;
   const unsyncedCount = orders.length - syncedCount;
 
-  // Filter orders
+  // Filter orders by Status, Search query, and Date Filter
   const filteredOrders = orders.filter((order) => {
     const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
     const matchesSearch =
@@ -174,7 +203,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.phone.includes(searchQuery);
-    return matchesStatus && matchesSearch;
+
+    let matchesDate = true;
+    if (dateFilter !== 'ALL') {
+      const d = parseDateSafe(order.createdAt);
+      if (!d) {
+        matchesDate = true;
+      } else {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfYesterday = new Date(startOfToday);
+        startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+        const endOfYesterday = new Date(startOfToday.getTime() - 1);
+
+        const sevenDaysAgo = new Date(startOfToday);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+        const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        if (dateFilter === 'TODAY') {
+          matchesDate = d >= startOfToday;
+        } else if (dateFilter === 'YESTERDAY') {
+          matchesDate = d >= startOfYesterday && d <= endOfYesterday;
+        } else if (dateFilter === 'LAST_7_DAYS') {
+          matchesDate = d >= sevenDaysAgo;
+        } else if (dateFilter === 'THIS_MONTH') {
+          matchesDate = d >= firstDayThisMonth;
+        } else if (dateFilter === 'CUSTOM') {
+          const start = customStartDate ? new Date(`${customStartDate}T00:00:00`) : new Date(0);
+          const end = customEndDate ? new Date(`${customEndDate}T23:59:59.999`) : new Date();
+          matchesDate = d >= start && d <= end;
+        }
+      }
+    }
+
+    return matchesStatus && matchesSearch && matchesDate;
   });
 
   const handleSingleSync = async (id: string) => {
@@ -584,6 +647,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <span>Pengaturan Toko</span>
           </button>
 
+          {/* 📋 BUTTON SUMMARY SELURUH PESANAN */}
+          <button
+            type="button"
+            onClick={() => setShowOrderSummaryModal(true)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs active:scale-95"
+            title="Buka Rekap/Summary Seluruh Pesanan (Filter Tanggal, Nama, Pesanan, Total Jumlah)"
+          >
+            <FileText className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Summary Pesanan 📋</span>
+          </button>
+
           {/* 📊 BUTTON BUKA LAPORAN KEUANGAN */}
           <button
             type="button"
@@ -754,9 +828,72 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* 📅 FILTER TANGGAL PESANAN */}
+            <div className="pt-2 border-t border-stone-100 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
+                  <span className="text-[11px] font-bold text-stone-500 mr-1 flex items-center gap-1 shrink-0">
+                    <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                    <span>Filter Tanggal:</span>
+                  </span>
+                  {[
+                    { id: 'ALL', label: 'Semua Tanggal' },
+                    { id: 'TODAY', label: 'Hari Ini' },
+                    { id: 'YESTERDAY', label: 'Kemarin' },
+                    { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
+                    { id: 'THIS_MONTH', label: 'Bulan Ini' },
+                    { id: 'CUSTOM', label: 'Pilih Tanggal' },
+                  ].map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setDateFilter(d.id as any)}
+                      className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap transition cursor-pointer text-[11px] ${
+                        dateFilter === d.id
+                          ? 'bg-red-600 text-white shadow-xs'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tombol Cepat Buka Rekap Summary */}
+                <button
+                  type="button"
+                  onClick={() => setShowOrderSummaryModal(true)}
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                  title="Lihat rekap seluruh pesanan: nama, pesanan, dan total jumlah pesanan"
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Rekap ({filteredOrders.length}) Pesanan</span>
+                </button>
+              </div>
+
+              {dateFilter === 'CUSTOM' && (
+                <div className="flex items-center gap-2 flex-wrap bg-stone-50 p-2 rounded-xl border border-stone-200 text-xs">
+                  <span className="text-stone-500 font-bold">Dari:</span>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="px-2 py-0.5 rounded-lg border border-stone-300 bg-white"
+                  />
+                  <span className="text-stone-500 font-bold">Sampai:</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="px-2 py-0.5 rounded-lg border border-stone-300 bg-white"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 🔘 TOOLBAR PILIH BANYAK PESANAN (MULTI-SELECT BAR) */}
+          {/* 🔘 TOOLBAR AKSI CEPAT & PILIH BANYAK (MULTI-SELECT BAR & BATCH ACTIONS) */}
           {filteredOrders.length > 0 && (
             <div className="bg-white rounded-2xl border border-stone-200 p-3 sm:p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
               <div className="flex items-center gap-2.5">
@@ -772,36 +909,70 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {selectedOrderIds.length > 0 && (
                   <span className="bg-red-100 text-red-800 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-red-200 animate-in fade-in">
-                    {selectedOrderIds.length} pesanan terpilih
+                    {selectedOrderIds.length} terpilih
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                {selectedOrderIds.length > 0 ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 🖨️ BUTTON PRINT ALL RESI (Filter Tanggal atau Transaksi Terpilih) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedOrderIds.length > 0) {
+                      const selected = filteredOrders.filter((o) => selectedOrderIds.includes(o.id));
+                      setBatchReceiptOrders(selected);
+                    } else {
+                      setBatchReceiptOrders(filteredOrders);
+                    }
+                    setShowBatchReceiptModal(true);
+                  }}
+                  className="bg-stone-900 hover:bg-stone-800 active:scale-95 text-white font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                  title={
+                    selectedOrderIds.length > 0
+                      ? `Cetak ${selectedOrderIds.length} resi yang sedang dicentang`
+                      : `Cetak semua (${filteredOrders.length}) resi pada filter saat ini`
+                  }
+                >
+                  <Printer className="w-3.5 h-3.5 text-amber-400" />
+                  <span>
+                    {selectedOrderIds.length > 0
+                      ? `Cetak (${selectedOrderIds.length}) Resi Terpilih`
+                      : `Cetak Semua Resi (${filteredOrders.length})`}
+                  </span>
+                </button>
+
+                {/* 📋 BUTTON SUMMARY SELURUH PESANAN */}
+                <button
+                  type="button"
+                  onClick={() => setShowOrderSummaryModal(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                  title="Buka summary daftar pesanan (Nama, Pesanan, Total Jumlah)"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Summary Pesanan</span>
+                </button>
+
+                {selectedOrderIds.length > 0 && (
                   <>
                     <button
                       type="button"
                       onClick={() => setShowBulkDeleteModal(true)}
-                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
+                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
                       title="Hapus semua transaksi yang sedang dicentang"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Hapus ({selectedOrderIds.length}) Transaksi</span>
+                      <span>Hapus ({selectedOrderIds.length})</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={handleClearSelection}
-                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-3 py-1.5 rounded-xl text-xs border border-stone-200 transition cursor-pointer"
+                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-2.5 py-1.5 rounded-xl text-xs border border-stone-200 transition cursor-pointer"
                     >
-                      Batal Pilih
+                      Batal
                     </button>
                   </>
-                ) : (
-                  <span className="text-[11px] text-stone-400">
-                    Centang transaksi untuk menghapus banyak sekaligus
-                  </span>
                 )}
               </div>
             </div>
@@ -1479,6 +1650,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
+              onClick={() => {
+                const selected = filteredOrders.filter((o) => selectedOrderIds.includes(o.id));
+                setBatchReceiptOrders(selected);
+                setShowBatchReceiptModal(true);
+              }}
+              className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-stone-900 font-black px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition cursor-pointer"
+              title="Cetak resi transaksi yang dipilih"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Cetak ({selectedOrderIds.length}) Resi</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowBulkDeleteModal(true)}
               className="bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-red-700/30 transition cursor-pointer"
             >
@@ -1497,7 +1682,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* 🖨️ MODAL CETAK RESI THERMAL (58MM) */}
+      {/* 🖨️ MODAL CETAK RESI THERMAL TUNGGAL (58MM) */}
       <ThermalReceiptModal
         isOpen={!!orderForReceipt}
         order={orderForReceipt}
@@ -1515,6 +1700,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         }}
         settings={settings}
         menuItems={menuItems}
+      />
+
+      {/* 🖨️ MODAL CETAK SEMUA / BANYAK RESI SEKALIGUS (BATCH PRINT 58MM) */}
+      <BatchThermalReceiptModal
+        isOpen={showBatchReceiptModal}
+        orders={batchReceiptOrders}
+        onClose={() => setShowBatchReceiptModal(false)}
+        onMarkAsPrinted={async (orderId) => {
+          await onMarkAsPrinted(orderId);
+        }}
+        settings={settings}
+        menuItems={menuItems}
+        title={
+          selectedOrderIds.length > 0
+            ? `Cetak ${batchReceiptOrders.length} Resi Terpilih`
+            : `Cetak Semua (${batchReceiptOrders.length}) Resi`
+        }
+      />
+
+      {/* 📋 MODAL SUMMARY / REKAP SELURUH PESANAN DENGAN FILTER TANGGAL */}
+      <OrderSummaryModal
+        isOpen={showOrderSummaryModal}
+        onClose={() => setShowOrderSummaryModal(false)}
+        orders={orders}
+        menuItems={menuItems}
+        settings={settings}
+        initialPeriod={
+          dateFilter === 'TODAY'
+            ? 'today'
+            : dateFilter === 'YESTERDAY'
+            ? 'yesterday'
+            : dateFilter === 'LAST_7_DAYS'
+            ? 'week'
+            : dateFilter === 'THIS_MONTH'
+            ? 'month'
+            : dateFilter === 'CUSTOM'
+            ? 'custom'
+            : 'all'
+        }
       />
 
       {/* 📊 MODAL DASHBOARD LAPORAN KEUANGAN & BEST SELLER */}

@@ -125,37 +125,112 @@ export default function App() {
   const [sheetsScriptNeedsUpdate, setSheetsScriptNeedsUpdate] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
-  // Helper to ensure all order items have accurate unit prices & subtotals (fixes item price 0 from sheet rows)
+  // Helper to ensure all order items have accurate unit prices, normalized clean names & subtotals
   const enrichOrdersWithMenuPricing = (ordersList: OrderData[], currentMenu: MenuItem[]): OrderData[] => {
     if (!ordersList || !Array.isArray(ordersList)) return [];
     return ordersList.map((order) => {
-      if (!order || !order.items || order.items.length === 0) return order;
-      const updatedItems = order.items.map((it) => {
+      if (!order) return order;
+
+      let rawItems = order.items;
+      if ((!rawItems || rawItems.length === 0) && order.rincianMenu) {
+        const lines = order.rincianMenu.split(/\r?\n|,\s*(?=\d+x|\b[A-Za-z])/i).filter(Boolean);
+        rawItems = lines.map((l, lIdx) => {
+          let lineQty = 1;
+          let lineNama = l.trim();
+          const qMatch = lineNama.match(/^(\d+)x\s+(.+)$/i);
+          if (qMatch) {
+            lineQty = parseInt(qMatch[1], 10) || 1;
+            lineNama = qMatch[2].trim();
+          }
+          return {
+            id: `item-${lIdx}`,
+            nama: lineNama,
+            qty: lineQty,
+            harga: 0,
+            subtotal: 0
+          };
+        });
+      }
+
+      const updatedItems = (rawItems || []).map((it) => {
+        let itNama = (it.nama || '').trim();
+        let itQty = Number(it.qty) || 1;
+
+        // Strip leading multiplier if present
+        const leadingM = itNama.match(/^(\d+)\s*x\s+(.+)$/i);
+        if (leadingM) {
+          itQty = parseInt(leadingM[1], 10) || itQty;
+          itNama = leadingM[2].trim();
+        }
+
+        // Strip trailing multiplier like (1x), (2x)
+        const trailingM = itNama.match(/[\(\[]\s*(\d+)?\s*x\s*(\d+)?\s*[\)\]]$/i);
+        if (trailingM) {
+          const mult = parseInt(trailingM[1] || trailingM[2] || '1', 10);
+          if (mult > 0 && it.qty === 1 && !leadingM) {
+            itQty = mult;
+          }
+          itNama = itNama.replace(/[\(\[]\s*(\d+)?\s*x\s*(\d+)?\s*[\)\]]$/i, '').trim();
+        }
+
+        // Strip price annotations like (Rp 25.000)
         let harga = it.harga || 0;
+        const pMatch = itNama.match(/\(?Rp\.?\s*([0-9.,]+)\)?/i);
+        if (pMatch) {
+          if (!harga) {
+            harga = parseInt(pMatch[1].replace(/[^0-9]/g, ''), 10) || 0;
+          }
+          itNama = itNama.replace(/\(?Rp\.?\s*[0-9.,]+\)?/gi, '').trim();
+        }
+
+        itNama = itNama.replace(/^[•\-\*\.]\s*/, '').replace(/\s+/g, ' ').trim();
+
+        // Match with currentMenu
+        const match = currentMenu.find(
+          (m) =>
+            m.nama.toLowerCase().trim() === itNama.toLowerCase().trim() ||
+            m.nama.toLowerCase().replace(/[^a-z0-9]/g, '') === itNama.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+            itNama.toLowerCase().includes(m.nama.toLowerCase()) ||
+            m.nama.toLowerCase().includes(itNama.toLowerCase())
+        );
+
+        if (match) {
+          itNama = match.nama;
+          if (harga === 0) harga = match.harga;
+        }
+
         let subtotal = it.subtotal || 0;
-        if (harga === 0 || subtotal === 0) {
-          const match = currentMenu.find(
-            (m) =>
-              m.nama.toLowerCase().trim() === it.nama.toLowerCase().trim() ||
-              it.nama.toLowerCase().includes(m.nama.toLowerCase()) ||
-              m.nama.toLowerCase().includes(it.nama.toLowerCase())
-          );
-          if (match) {
-            harga = match.harga;
-            subtotal = match.harga * (it.qty || 1);
-          } else if (order.items && order.items.length === 1 && order.totalHarga > 0) {
+        if (subtotal === 0 || harga === 0) {
+          if (harga > 0) {
+            subtotal = harga * itQty;
+          } else if (rawItems && rawItems.length === 1 && order.totalHarga > 0) {
             subtotal = order.totalHarga;
-            harga = Math.round(order.totalHarga / (it.qty || 1));
+            harga = Math.round(order.totalHarga / itQty);
           }
         }
+
         return {
           ...it,
+          nama: itNama,
+          qty: itQty,
           harga,
-          subtotal: subtotal || (harga * (it.qty || 1)),
+          subtotal: subtotal || (harga * itQty),
         };
       });
+
+      // Sanitize corrupted alamat that was mistakenly filled with menu items
+      let cleanAlamat = order.alamat || '';
+      if (
+        cleanAlamat.match(/^\d+x\s+/i) ||
+        cleanAlamat.includes('(Rp ') ||
+        cleanAlamat === order.rincianMenu
+      ) {
+        cleanAlamat = order.opsiPengiriman === 'Ambil di Outlet' ? 'Ambil langsung di Outlet DIMSUMANYU' : '';
+      }
+
       return {
         ...order,
+        alamat: cleanAlamat,
         items: updatedItems,
       };
     });

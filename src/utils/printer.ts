@@ -160,7 +160,8 @@ export async function getLogoEscPosRaster(
 // Convert string to ESC/POS bytes with simple encoding + optional bitmap logo at top
 export function createEscPosBuffer(
   lines: string[],
-  logoRasterBuffer?: Uint8Array | null
+  logoRasterBuffer?: Uint8Array | null,
+  feedLines: number = 1
 ): Uint8Array {
   const encoder = new TextEncoder();
   const chunks: Uint8Array[] = [];
@@ -200,10 +201,11 @@ export function createEscPosBuffer(
     }
   }
 
-  // Feed 3 lines & Cut (GS V 66 0)
-  chunks.push(new Uint8Array([0x1b, 0x64, 0x03]));
-  // Feed additional lines
-  chunks.push(new Uint8Array([0x0a, 0x0a, 0x0a]));
+  // Feed compact lines (just enough to reach the serrated manual cutter bar without blank paper waste)
+  const clampedFeed = Math.max(0, Math.min(feedLines, 4));
+  if (clampedFeed > 0) {
+    chunks.push(new Uint8Array([0x1b, 0x64, clampedFeed]));
+  }
 
   const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
   const result = new Uint8Array(totalLength);

@@ -155,11 +155,6 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     text += `Tanggal  : ${orderDate}\n`;
     text += `Nama     : ${order.nama}\n`;
     text += `No. HP   : ${order.phone}\n`;
-    if (order.opsiPengiriman === 'Diantar ke Alamat' && order.alamat) {
-      text += `Alamat   : ${order.alamat}\n`;
-    }
-    text += `Bayar    : ${order.metodeBayar}\n`;
-    text += `Status   : ${order.status}\n`;
     text += divider;
     text += 'RINCIAN PESANAN:\n';
 
@@ -216,9 +211,10 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
     text += doubleDivider;
     text += '       *** TERIMA KASIH ***     \n';
-    text += ' Selamat Menikmati #SensasiNgedaging\n';
-    text += '        IG: @dimsumanyu         \n';
-    text += '\n\n';
+    text += '        Selamat Menikmati       \n';
+    text += '        #SensasiNgedaging       \n';
+    text += '         IG: @dimsumanyu        \n';
+    text += '\n';
     return text;
   };
 
@@ -238,11 +234,6 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     lines.push(`Tanggal  : ${orderDate}`);
     lines.push(`Nama     : ${order.nama}`);
     lines.push(`No. HP   : ${order.phone}`);
-    if (order.opsiPengiriman === 'Diantar ke Alamat' && order.alamat) {
-      lines.push(`Alamat   : ${order.alamat}`);
-    }
-    lines.push(`Bayar    : ${order.metodeBayar}`);
-    lines.push(`Status   : ${order.status}`);
     lines.push('--------------------------------');
     lines.push('RINCIAN PESANAN:');
 
@@ -277,7 +268,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     lines.push('================================');
     lines.push('CMD_CENTER');
     lines.push('*** TERIMA KASIH ***');
-    lines.push('Selamat Menikmati #SensasiNgedaging');
+    lines.push('Selamat Menikmati');
+    lines.push('#SensasiNgedaging');
     lines.push('IG: @dimsumanyu');
     lines.push('================================');
     return lines;
@@ -314,7 +306,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
             console.warn('Could not load logo raster for bluetooth:', e);
           }
         }
-        const buffer = createEscPosBuffer(lines, logoRaster);
+        const feedLines = 1; // Pas & hemat: kertas berhenti pas di garis potong gerigi printer
+        const buffer = createEscPosBuffer(lines, logoRaster, feedLines);
         const sent = await sendBluetoothEscPos(buffer);
 
         if (sent) {
@@ -604,16 +597,16 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     className="w-16 h-16 mx-auto object-contain object-top mb-1 thermal-receipt-logo"
                   />
                 )}
-                <h1 className="text-base font-black tracking-wider text-black uppercase">
+                <h1 className="text-base font-black tracking-wider text-black uppercase whitespace-nowrap">
                   DIMSUMANYU
                 </h1>
-                <p className="text-[10px] font-bold text-black">
+                <p className="text-[10px] font-bold text-black whitespace-nowrap">
                   #SensasiNgedaging
                 </p>
-                <p className="text-[9px] text-black mt-0.5">
+                <p className="text-[9px] text-black mt-0.5 whitespace-nowrap">
                   WA: {settings?.adminWaNumber || '0857-5462-3156'}
                 </p>
-                <p className="text-[9px] text-black">
+                <p className="text-[9px] text-black whitespace-nowrap">
                   IG: @dimsumanyu
                 </p>
               </div>
@@ -638,20 +631,6 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 <div className="flex justify-between">
                   <span>HP    :</span>
                   <span>{order.phone}</span>
-                </div>
-                {order.opsiPengiriman === 'Diantar ke Alamat' && order.alamat && (
-                  <div className="pt-0.5">
-                    <span className="block text-[9px]">ALAMAT PENGIRIMAN:</span>
-                    <span className="font-medium text-[9px] break-words">{order.alamat}</span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-0.5">
-                  <span>BAYAR :</span>
-                  <span className="font-bold">{order.metodeBayar}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>STATUS:</span>
-                  <span className="font-bold uppercase">{order.status}</span>
                 </div>
               </div>
 
@@ -734,15 +713,16 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
               )}
 
               {/* Double divider for footer */}
-              <div className="border-b-2 border-dashed border-black my-2" />
+              <div className="border-b-2 border-dashed border-black my-1.5" />
 
               {/* Footer */}
-              <div className="text-center text-[9px] space-y-0.5 pt-0.5 pb-1">
-                <p className="font-bold">*** TERIMA KASIH ***</p>
-                <p>Selamat Menikmati #SensasiNgedaging</p>
-                <p className="font-semibold">Instagram: @dimsumanyu</p>
+              <div className="text-center text-[9.5px] space-y-0.5 pt-0.5 pb-0">
+                <p className="font-bold whitespace-nowrap">*** TERIMA KASIH ***</p>
+                <p className="whitespace-nowrap">Selamat Menikmati</p>
+                <p className="font-bold whitespace-nowrap">#SensasiNgedaging</p>
+                <p className="font-semibold whitespace-nowrap">Instagram: @dimsumanyu</p>
                 {order.printCount && order.printCount > 0 ? (
-                  <p className="text-[8px] text-stone-600 pt-1">
+                  <p className="text-[8px] text-stone-600 pt-0.5 whitespace-nowrap">
                     [Cetak Ulang #{order.printCount + 1}]
                   </p>
                 ) : null}
