@@ -21,8 +21,59 @@ import { formatRupiah } from './utils/whatsapp';
 import { ArrowRight, Lock, Instagram } from 'lucide-react';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'order' | 'admin'>('order');
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  // Persisted Active View ('order' | 'admin') across page reloads and browser refreshes
+  const [activeView, setActiveView] = useState<'order' | 'admin'>(() => {
+    try {
+      const hash = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
+      if (hash === '#admin') {
+        const isAuth = localStorage.getItem('dimsumanyu_admin_session') === 'authenticated';
+        return isAuth ? 'admin' : 'order';
+      }
+      if (hash === '#order' || hash === '#menu') return 'order';
+
+      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      if (searchParams && (searchParams.get('admin') === 'true' || searchParams.get('view') === 'admin' || searchParams.get('mode') === 'admin')) {
+        const isAuth = localStorage.getItem('dimsumanyu_admin_session') === 'authenticated';
+        return isAuth ? 'admin' : 'order';
+      }
+
+      const saved = localStorage.getItem('dimsumanyu_active_view');
+      if (saved === 'admin') {
+        const isAuth = localStorage.getItem('dimsumanyu_admin_session') === 'authenticated';
+        return isAuth ? 'admin' : 'order';
+      }
+      return 'order';
+    } catch {
+      return 'order';
+    }
+  });
+
+  // Persisted cart state across reloads
+  const [cart, setCart] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_cart');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Persisted checkout step (1 = Katalog Menu, 2 = Form Checkout)
+  const [currentStep, setCurrentStep] = useState<number>(() => {
+    try {
+      const savedStep = localStorage.getItem('dimsumanyu_current_step');
+      const step = savedStep ? parseInt(savedStep, 10) : 1;
+      if (step === 2) {
+        const savedCart = localStorage.getItem('dimsumanyu_cart');
+        const parsed = savedCart ? JSON.parse(savedCart) : {};
+        const hasItems = Object.values(parsed).some((q: any) => Number(q) > 0);
+        return hasItems ? 2 : 1;
+      }
+      return 1;
+    } catch {
+      return 1;
+    }
+  });
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
     try {
       const saved = localStorage.getItem('dimsumanyu_menu');
@@ -74,7 +125,6 @@ export default function App() {
       return [];
     }
   });
-  const [cart, setCart] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showBestSellerOnly, setShowBestSellerOnly] = useState<boolean>(false);
@@ -488,6 +538,52 @@ export default function App() {
     };
   }, [activeView]);
 
+  // Synchronize activeView with localStorage & URL hash so refresh always preserves current view
+  useEffect(() => {
+    try {
+      localStorage.setItem('dimsumanyu_active_view', activeView);
+      const targetHash = activeView === 'admin' ? '#admin' : '#order';
+      if (window.location.hash !== targetHash) {
+        window.history.replaceState(null, '', targetHash);
+      }
+    } catch {}
+  }, [activeView]);
+
+  // Synchronize cart with localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('dimsumanyu_cart', JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
+
+  // Synchronize checkout step (1 = Menu, 2 = Checkout) with localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('dimsumanyu_current_step', currentStep.toString());
+    } catch {}
+  }, [currentStep]);
+
+  // Listen to browser Back/Forward navigation hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#admin') {
+        const isAuth = localStorage.getItem('dimsumanyu_admin_session') === 'authenticated';
+        if (isAuth) {
+          setIsAdminLoggedIn(true);
+          setActiveView('admin');
+        } else {
+          setShowLoginModal(true);
+        }
+      } else if (hash === '#order' || hash === '#menu' || hash === '') {
+        setActiveView('order');
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   // Admin Auth Handlers
   const handleOpenAdminLogin = () => {
     if (isAdminLoggedIn) {
@@ -503,14 +599,22 @@ export default function App() {
 
   const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true);
+    localStorage.setItem('dimsumanyu_active_view', 'admin');
     setActiveView('admin');
+    try {
+      window.history.replaceState(null, '', '#admin');
+    } catch {}
     fetchOrdersOnly();
   };
 
   const handleAdminLogout = () => {
     localStorage.removeItem('dimsumanyu_admin_session');
+    localStorage.setItem('dimsumanyu_active_view', 'order');
     setIsAdminLoggedIn(false);
     setActiveView('order');
+    try {
+      window.history.replaceState(null, '', '#order');
+    } catch {}
   };
 
   // Extract Categories

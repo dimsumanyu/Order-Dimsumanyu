@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileSpreadsheet,
   RefreshCw,
@@ -104,13 +104,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   sheetsScriptNeedsUpdate,
   syncFeedback,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'settings'>(() => {
+    try {
+      const savedTab = localStorage.getItem('dimsumanyu_admin_tab');
+      if (savedTab === 'stock' || savedTab === 'settings' || savedTab === 'orders') {
+        return savedTab;
+      }
+      return 'orders';
+    } catch {
+      return 'orders';
+    }
+  });
+
+  // Synchronize activeTab with localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('dimsumanyu_admin_tab', activeTab);
+    } catch {}
+  }, [activeTab]);
+
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
 
   // Date Filter State
-  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
+  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'CUSTOM'>(() => {
+    try {
+      const saved = localStorage.getItem('dimsumanyu_admin_date_filter');
+      if (saved && ['ALL', 'TODAY', 'YESTERDAY', 'LAST_7_DAYS', 'THIS_MONTH', 'CUSTOM'].includes(saved)) {
+        return saved as any;
+      }
+      return 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+
+  // Synchronize dateFilter with localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('dimsumanyu_admin_date_filter', dateFilter);
+    } catch {}
+  }, [dateFilter]);
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
     try {
       return new Date().toISOString().split('T')[0];
