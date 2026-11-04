@@ -161,7 +161,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     const getMarkerText = () => {
       if (markerStyle === 'bullet') return '• ';
       if (markerStyle === 'dash') return '- ';
-      if (markerStyle === 'box') return '[ ] ';
+      if (markerStyle === 'box') return '☐ ';
       return '';
     };
     const marker = getMarkerText();
@@ -261,7 +261,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     lines.push('--------------------------------');
     lines.push('RINCIAN PESANAN:');
 
-    const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '[ ] ' : '';
+    const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '☐ ' : '';
 
     if (order.items && order.items.length > 0) {
       order.items.forEach((it) => {

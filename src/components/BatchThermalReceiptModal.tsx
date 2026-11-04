@@ -116,7 +116,7 @@ export const BatchThermalReceiptModal: React.FC<BatchThermalReceiptModalProps> =
     lines.push(divider);
     lines.push('ITEM PESANAN:');
 
-    const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '[ ] ' : '';
+    const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '☐ ' : '';
 
     if (order.items && order.items.length > 0) {
       order.items.forEach((it) => {
@@ -236,7 +236,7 @@ export const BatchThermalReceiptModal: React.FC<BatchThermalReceiptModalProps> =
           lines.push('--------------------------------');
           lines.push('RINCIAN PESANAN:');
 
-          const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '[ ] ' : '';
+          const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '☐ ' : '';
 
           if (order.items && order.items.length > 0) {
             order.items.forEach((it) => {
