@@ -26,7 +26,8 @@ import {
   DollarSign,
   FileText,
   Calendar,
-  Layers
+  Layers,
+  Smartphone
 } from 'lucide-react';
 import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
@@ -76,6 +77,7 @@ interface AdminPanelProps {
   lastSyncedTime?: Date | null;
   sheetsScriptNeedsUpdate?: boolean;
   syncFeedback?: string | null;
+  onOpenInstallModal?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -103,6 +105,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   lastSyncedTime,
   sheetsScriptNeedsUpdate,
   syncFeedback,
+  onOpenInstallModal,
 }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'settings'>(() => {
     try {
@@ -1378,6 +1381,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Tab 3: Store Settings */}
       {activeTab === 'settings' && (
         <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs space-y-4">
+          {/* PWA Kasir Mobile Quick Card */}
+          {onOpenInstallModal && (
+            <div className="p-4 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 text-white rounded-2xl border border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-xs text-white flex items-center gap-1.5">
+                    <span>Aplikasi Kasir DIMSUMANYU (PWA)</span>
+                    <span className="text-[9.5px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded-full">
+                      Mobile &amp; Tablet
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-stone-300">
+                    Pasang aplikasi langsung di layar utama HP/tablet kasir outlet untuk tampilan fullscreen bebas hambatan.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={onOpenInstallModal}
+                className="bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Pasang Aplikasi di HP</span>
+              </button>
+            </div>
+          )}
+
           <h3 className="font-extrabold text-stone-900 text-xs sm:text-sm border-b border-stone-100 pb-2">
             Pengaturan Nomor WhatsApp, Rekening, dan Webhook
           </h3>

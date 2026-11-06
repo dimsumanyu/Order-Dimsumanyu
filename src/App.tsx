@@ -15,10 +15,12 @@ import { TrackOrderSearchModal } from './components/TrackOrderSearchModal';
 import { AdminPanel } from './components/AdminPanel';
 import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { PWAInstallModal } from './components/PWAInstallModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { MenuItem, OrderData, AppSettings, ShippingOption, PaymentMethod, OrderStatus } from './types';
 import { INITIAL_MENU, INITIAL_SETTINGS } from './data/initialMenu';
 import { formatRupiah } from './utils/whatsapp';
-import { ArrowRight, Lock, Instagram } from 'lucide-react';
+import { ArrowRight, Lock, Instagram, Download } from 'lucide-react';
 
 export default function App() {
   // Persisted Active View ('order' | 'admin') across page reloads and browser refreshes
@@ -137,6 +139,7 @@ export default function App() {
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<OrderData | null>(null);
   const [showTrackingModal, setShowTrackingModal] = useState<boolean>(false);
   const [showTrackSearchModal, setShowTrackSearchModal] = useState<boolean>(false);
+  const [showPWAInstallModal, setShowPWAInstallModal] = useState<boolean>(false);
   const [myOrderIds, setMyOrderIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('dimsumanyu_my_order_ids');
@@ -1201,6 +1204,7 @@ export default function App() {
           onOpenAdminLogin={handleOpenAdminLogin}
           onAdminLogout={handleAdminLogout}
           onOpenTrackOrder={() => setShowTrackSearchModal(true)}
+          onOpenInstallModal={() => setShowPWAInstallModal(true)}
         />
 
         <main className="max-w-4xl mx-auto px-2 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-5 w-full max-w-full">
@@ -1278,6 +1282,7 @@ export default function App() {
               lastSyncedTime={lastSyncedTime}
               sheetsScriptNeedsUpdate={sheetsScriptNeedsUpdate}
               syncFeedback={syncFeedback}
+              onOpenInstallModal={() => setShowPWAInstallModal(true)}
             />
           )}
         </main>
@@ -1305,6 +1310,15 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowPWAInstallModal(true)}
+              className="text-[11px] text-stone-600 hover:text-red-600 flex items-center gap-1 font-semibold transition cursor-pointer"
+              title="Install aplikasi ke HP atau Tablet"
+            >
+              <Download className="w-3 h-3 text-red-600" />
+              <span>Install App</span>
+            </button>
+            <span>•</span>
             <button
               onClick={() => setShowTrackSearchModal(true)}
               className="text-[11px] text-stone-500 hover:text-stone-800 transition cursor-pointer"
@@ -1418,6 +1432,15 @@ export default function App() {
         onSyncAll={handleSyncAll}
         isSyncing={isSyncing}
       />
+
+      {/* PWA Install Modal (Android 1-click & iOS Safari Guide) */}
+      <PWAInstallModal
+        isOpen={showPWAInstallModal}
+        onClose={() => setShowPWAInstallModal(false)}
+      />
+
+      {/* Offline Status Alert Banner */}
+      <OfflineIndicator />
     </div>
   );
 }

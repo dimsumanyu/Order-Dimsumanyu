@@ -9,8 +9,10 @@ import {
   X,
   Lock,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Download
 } from 'lucide-react';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface NavbarProps {
   currentStep: number;
@@ -22,6 +24,7 @@ interface NavbarProps {
   onOpenAdminLogin: () => void;
   onAdminLogout: () => void;
   onOpenTrackOrder: () => void;
+  onOpenInstallModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -34,8 +37,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAdminLogin,
   onAdminLogout,
   onOpenTrackOrder,
+  onOpenInstallModal,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isInstalled } = usePWAInstall();
 
   const handleOpenLogin = () => {
     setIsMobileMenuOpen(false);
@@ -45,6 +50,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const handleOpenTracking = () => {
     setIsMobileMenuOpen(false);
     onOpenTrackOrder();
+  };
+
+  const handleOpenInstall = () => {
+    setIsMobileMenuOpen(false);
+    onOpenInstallModal();
   };
 
   const handleSwitchView = (view: 'order' | 'admin') => {
@@ -94,6 +104,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Clock className="w-3.5 h-3.5 text-orange-600 shrink-0" />
               <span className="text-xs">Lacak</span>
             </button>
+
+            {/* In-App PWA Install Button */}
+            {!isInstalled && (
+              <button
+                onClick={handleOpenInstall}
+                className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 px-2 sm:px-2.5 py-1.5 rounded-xl border border-red-200 transition cursor-pointer shadow-xs active:scale-95"
+                title="Pasang aplikasi DIMSUMANYU di layar utama HP"
+              >
+                <Download className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                <span className="text-xs">Install</span>
+              </button>
+            )}
 
             {/* Cart count pill if in shopping mode */}
             {activeView === 'order' && cartCount > 0 && (
@@ -255,6 +277,32 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                   <ChevronRight className="w-4 h-4 text-stone-400" />
                 </button>
+
+                {/* 3. Install Aplikasi Dimsumanyu */}
+                {!isInstalled && (
+                  <button
+                    onClick={handleOpenInstall}
+                    className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-bold p-3 rounded-2xl shadow-sm transition flex items-center justify-between cursor-pointer text-left active:scale-98"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                        <Download className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-white flex items-center gap-1.5">
+                          <span>Install Aplikasi Dimsumanyu</span>
+                          <span className="text-[9px] bg-white text-red-700 px-1.5 py-0.2 rounded-full font-extrabold uppercase">
+                            App
+                          </span>
+                        </p>
+                        <p className="text-[10px] text-red-100 font-normal">
+                          Pasang di layar utama HP (Cepat &amp; Fullscreen)
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-red-200" />
+                  </button>
+                )}
               </div>
             </div>
 
