@@ -22,19 +22,26 @@ import { INITIAL_MENU, INITIAL_SETTINGS } from './data/initialMenu';
 import { formatRupiah } from './utils/whatsapp';
 import { ArrowRight, Lock, Instagram, Download } from 'lucide-react';
 
+export function isCorruptedMenuList(list: MenuItem[]): boolean {
+  if (!Array.isArray(list) || list.length === 0) return true;
+  const countGeneric = list.filter(m => m && (m.nama === 'DIMSUM KUKUS' || m.nama === 'DIMSUM GORENG')).length;
+  if (countGeneric >= 2) return true;
+
+  const frozenCount = list.filter(m => m && m.kategori === 'DIMSUM FROZEN').length;
+  if (list.length >= 10 && frozenCount > list.length / 2) return true;
+
+  return false;
+}
+
 export function cleanAndSanitizeMenuItem(item: MenuItem): MenuItem {
   if (!item) return item;
   let nama = String(item.nama || '').trim();
   let kategori = String(item.kategori || 'DIMSUM').trim().toUpperCase();
   let harga = Number(item.harga) || 0;
 
-  // 1. Fix inverted name and category where ID was saved as name and food name as category
-  if (
-    nama.startsWith('menu-17') ||
-    nama.startsWith('menu-') ||
-    (kategori.length > 5 && /\b(KUKUS|GORENG|MENTAI|FROZEN|PAKET|ISI|PCS)\b/i.test(kategori) && nama.length > 20)
-  ) {
-    if (kategori && kategori.length > 3) {
+  // 1. Only fix if nama is literally a generated technical ID (e.g. "menu-1794023945925-ldzx")
+  if (/^menu-\d{10,}-[a-z0-9]+/i.test(nama)) {
+    if (kategori && !kategori.startsWith('menu-')) {
       nama = kategori;
       kategori = 'DIMSUM FROZEN';
       if (harga <= 0 || harga < 1000) {
@@ -48,13 +55,54 @@ export function cleanAndSanitizeMenuItem(item: MenuItem): MenuItem {
     }
   }
 
-  // 2. Prevent single product names from becoming category pills
-  if (/\bISI\s+\d+\s+PCS\b/i.test(kategori) || (kategori.length > 20 && !kategori.startsWith('PAKET'))) {
+  // 2. If nama was previously corrupted into generic names, restore proper food names
+  if (nama === 'DIMSUM KUKUS') {
+    if (harga === 25000) nama = 'KUKUS ORIGINAL ISI 6 PCS';
+    else if (harga === 32000) nama = 'KUKUS MENTAI ISI 6 PCS';
+    else if (harga === 33000) nama = 'KUKUS ORIGINAL ISI 8 PCS';
+    else if (harga === 43000) nama = 'KUKUS MENTAI ISI 8 PCS';
+    else nama = 'KUKUS ORIGINAL ISI 6 PCS';
+    kategori = 'DIMSUM KUKUS';
+  } else if (nama === 'DIMSUM GORENG') {
+    if (harga === 25000) nama = 'GORENG ORIGINAL ISI 5 PCS';
+    else if (harga === 35000) nama = 'GORENG MENTAI ISI 5 PCS';
+    else if (harga === 45000) nama = 'GORENG MENTAI ISI 7 PCS';
+    else nama = 'GORENG ORIGINAL ISI 5 PCS';
+    kategori = 'DIMSUM GORENG';
+  }
+
+  // 3. Ensure accurate categories based on actual food name
+  if (nama.startsWith('KUKUS ORIGINAL') || nama.startsWith('KUKUS MENTAI')) {
+    kategori = nama.includes('16 PCS') ? 'PAKET FAMILY' : 'DIMSUM KUKUS';
+  } else if (nama.startsWith('GORENG ORIGINAL') || nama.startsWith('GORENG MENTAI')) {
+    kategori = nama.includes('16 PCS') ? 'PAKET FAMILY' : 'DIMSUM GORENG';
+  } else if (nama.startsWith('MIX') || nama.startsWith('MINI MIX') || nama.startsWith('FAMILY MIX')) {
+    if (nama.includes('FAMILY')) kategori = 'PAKET FAMILY MIX';
+    else if (nama.includes('ISI 6')) kategori = 'PAKET MIX ISI 6';
+    else if (nama.includes('ISI 8')) kategori = 'PAKET MIX ISI 8';
+    else kategori = 'PAKET MIX';
+  } else if (nama.includes('FROZEN')) {
+    kategori = 'DIMSUM FROZEN';
+  } else if (nama.includes('TEA')) {
+    kategori = 'DRINK';
+  } else if (nama.includes('BIRTHDAY')) {
+    kategori = 'PAKET BIRTHDAY';
+  } else if (nama.includes('SAUS') || nama.includes('CHILI') || nama.includes('MAYO')) {
+    kategori = 'EXTRA SAUS';
+  }
+
+  // 4. Prevent item names like "ISI ... PCS" from becoming category pills
+  if (/\bISI\s+\d+\s+PCS\b/i.test(kategori)) {
     if (kategori.includes('FROZEN')) kategori = 'DIMSUM FROZEN';
     else if (kategori.includes('KUKUS')) kategori = 'DIMSUM KUKUS';
     else if (kategori.includes('GORENG')) kategori = 'DIMSUM GORENG';
     else if (kategori.includes('MIX')) kategori = 'PAKET MIX';
     else kategori = 'DIMSUM';
+  }
+
+  // 5. Fix price typo if 7 instead of 35000
+  if (harga === 7 && nama.includes('7 PCS')) {
+    harga = 35000;
   }
 
   return {
@@ -66,8 +114,24 @@ export function cleanAndSanitizeMenuItem(item: MenuItem): MenuItem {
 }
 
 export function cleanAndSanitizeMenuList(list: MenuItem[]): MenuItem[] {
-  if (!Array.isArray(list)) return [];
-  return list.map(cleanAndSanitizeMenuItem);
+  if (!Array.isArray(list) || list.length === 0) return INITIAL_MENU;
+  if (isCorruptedMenuList(list)) {
+    return INITIAL_MENU;
+  }
+  
+  const seen = new Set<string>();
+  const sanitized: MenuItem[] = [];
+  for (const raw of list) {
+    if (!raw) continue;
+    const clean = cleanAndSanitizeMenuItem(raw);
+    const key = clean.nama.toLowerCase();
+    if (clean.nama === 'DIMSUM FROZEN' && list.length > 5) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sanitized.push(clean);
+  }
+
+  return sanitized.length > 0 ? sanitized : INITIAL_MENU;
 }
 
 export default function App() {
@@ -127,7 +191,16 @@ export default function App() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
     try {
       const saved = localStorage.getItem('dimsumanyu_menu');
-      return saved ? cleanAndSanitizeMenuList(JSON.parse(saved)) : INITIAL_MENU;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && !isCorruptedMenuList(parsed)) {
+          return cleanAndSanitizeMenuList(parsed);
+        }
+      }
+      try {
+        localStorage.removeItem('dimsumanyu_menu');
+      } catch {}
+      return INITIAL_MENU;
     } catch {
       return INITIAL_MENU;
     }

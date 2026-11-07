@@ -765,8 +765,8 @@ function getMenuFromSheet() {
     var harga = typeof rawHarga === 'number' ? rawHarga : (parseInt(String(rawHarga).replace(/[^0-9]/g, ''), 10) || 0);
 
     // AUTO-REPAIR SPREADSHEET CERDAS:
-    // Jika nama berupa ID teknis (misal menu-1794...) dan kategori adalah nama produk asli:
-    if (nama.indexOf('menu-17') === 0 || nama.indexOf('menu-') === 0) {
+    // Hanya jika nama berupa ID teknis timestamp panjang (misal menu-179402...)
+    if (nama.indexOf('menu-17') === 0 && nama.length > 15) {
       var realNama = kategori;
       var realKategori = "DIMSUM FROZEN";
       var realHarga = harga;
@@ -837,7 +837,7 @@ function saveMenuItemToSheet(item) {
   var inputKategori = String(item.kategori || 'DIMSUM').trim().toUpperCase();
 
   // Pengamanan jika nama terisi ID otomatis
-  if (inputNama.indexOf('menu-17') === 0 || inputNama.indexOf('menu-') === 0) {
+  if (inputNama.indexOf('menu-17') === 0 && inputNama.length > 15) {
     if (inputKategori && inputKategori.indexOf(' ') !== -1) {
       inputNama = inputKategori;
       inputKategori = 'DIMSUM FROZEN';

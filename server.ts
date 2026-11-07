@@ -177,8 +177,8 @@ async function startServer() {
     let kategori = String(item.kategori || 'DIMSUM').trim().toUpperCase();
     let harga = Number(item.harga) || 0;
 
-    if (nama.startsWith('menu-17') || nama.startsWith('menu-') || (kategori.length > 5 && /\b(KUKUS|GORENG|MENTAI|FROZEN|PAKET|ISI|PCS)\b/i.test(kategori) && nama.length > 20)) {
-      if (kategori && kategori.length > 3) {
+    if (/^menu-\d{10,}-[a-z0-9]+/i.test(nama)) {
+      if (kategori && !kategori.startsWith('menu-')) {
         nama = kategori;
         kategori = 'DIMSUM FROZEN';
         if (harga <= 0 || harga < 1000) {
@@ -192,7 +192,20 @@ async function startServer() {
       }
     }
 
-    if (/\bISI\s+\d+\s+PCS\b/i.test(kategori) || (kategori.length > 20 && !kategori.startsWith('PAKET'))) {
+    if (nama.startsWith('KUKUS ORIGINAL') || nama.startsWith('KUKUS MENTAI')) {
+      kategori = nama.includes('16 PCS') ? 'PAKET FAMILY' : 'DIMSUM KUKUS';
+    } else if (nama.startsWith('GORENG ORIGINAL') || nama.startsWith('GORENG MENTAI')) {
+      kategori = nama.includes('16 PCS') ? 'PAKET FAMILY' : 'DIMSUM GORENG';
+    } else if (nama.startsWith('MIX') || nama.startsWith('MINI MIX') || nama.startsWith('FAMILY MIX')) {
+      if (nama.includes('FAMILY')) kategori = 'PAKET FAMILY MIX';
+      else if (nama.includes('ISI 6')) kategori = 'PAKET MIX ISI 6';
+      else if (nama.includes('ISI 8')) kategori = 'PAKET MIX ISI 8';
+      else kategori = 'PAKET MIX';
+    } else if (nama.includes('FROZEN')) {
+      kategori = 'DIMSUM FROZEN';
+    }
+
+    if (/\bISI\s+\d+\s+PCS\b/i.test(kategori)) {
       if (kategori.includes('FROZEN')) kategori = 'DIMSUM FROZEN';
       else if (kategori.includes('KUKUS')) kategori = 'DIMSUM KUKUS';
       else if (kategori.includes('GORENG')) kategori = 'DIMSUM GORENG';
