@@ -1,6 +1,6 @@
 {
   "name": "DIMSUMANYU - Pemesanan Online & Integrasi Google Sheets",
-  "description": "Aplikasi pemesanan online resmi DIMSUMANYU (#SensasiNgedaging) dengan sinkronisasi otomatis ke Google Sheets dan Google Apps Script, integrasi WhatsApp, QRIS, dan transfer bank.",
+  "description": "Pesan dimsum lezat & hangat langsung ke rumah Anda. Nikmati #SensasiNgedaging dengan aneka pilihan kukus, goreng, nori & saus mentai spesial. Praktis & cepat!",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
