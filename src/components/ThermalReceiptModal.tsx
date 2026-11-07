@@ -199,18 +199,18 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     }
 
     text += divider;
-    const isDelivery = order.opsiPengiriman === 'Diantar ke Alamat';
     const rawItemsSubtotal = order.items && order.items.length > 0
       ? order.items.reduce((sum, it) => sum + getItemPricing(it).subtotal, 0)
       : order.totalHarga;
 
     let ongkirValNum = Number(order.ongkir) || 0;
-    if (ongkirValNum === 0 && isDelivery && order.totalHarga > rawItemsSubtotal && rawItemsSubtotal > 0) {
+    if (ongkirValNum === 0 && order.totalHarga > rawItemsSubtotal && rawItemsSubtotal > 0) {
       ongkirValNum = Math.max(0, order.totalHarga - rawItemsSubtotal);
     }
-    const displaySubtotal = isDelivery ? (order.totalHarga - ongkirValNum) : rawItemsSubtotal;
+    const hasOngkir = ongkirValNum > 0 || (order.totalHarga > rawItemsSubtotal && rawItemsSubtotal > 0);
+    const displaySubtotal = hasOngkir ? (order.totalHarga - ongkirValNum) : rawItemsSubtotal;
 
-    if (isDelivery) {
+    if (hasOngkir) {
       const subtotalLabel = 'SUBTOTAL:';
       const subtotalVal = formatRupiah(displaySubtotal);
       const subSpaces = Math.max(1, 32 - subtotalLabel.length - subtotalVal.length);
@@ -280,18 +280,18 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     }
 
     lines.push('--------------------------------');
-    const isDeliveryEsc = order.opsiPengiriman === 'Diantar ke Alamat';
     const rawItemsSubtotalEsc = order.items && order.items.length > 0
       ? order.items.reduce((sum, it) => sum + getItemPricing(it).subtotal, 0)
       : order.totalHarga;
 
     let ongkirValNumEsc = Number(order.ongkir) || 0;
-    if (ongkirValNumEsc === 0 && isDeliveryEsc && order.totalHarga > rawItemsSubtotalEsc && rawItemsSubtotalEsc > 0) {
+    if (ongkirValNumEsc === 0 && order.totalHarga > rawItemsSubtotalEsc && rawItemsSubtotalEsc > 0) {
       ongkirValNumEsc = Math.max(0, order.totalHarga - rawItemsSubtotalEsc);
     }
-    const displaySubtotalEsc = isDeliveryEsc ? (order.totalHarga - ongkirValNumEsc) : rawItemsSubtotalEsc;
+    const hasOngkirEsc = ongkirValNumEsc > 0 || (order.totalHarga > rawItemsSubtotalEsc && rawItemsSubtotalEsc > 0);
+    const displaySubtotalEsc = hasOngkirEsc ? (order.totalHarga - ongkirValNumEsc) : rawItemsSubtotalEsc;
 
-    if (isDeliveryEsc) {
+    if (hasOngkirEsc) {
       lines.push(`SUBTOTAL: ${formatRupiah(displaySubtotalEsc)}`);
       lines.push(`ONGKIR: ${formatRupiah(ongkirValNumEsc)}`);
       lines.push('--------------------------------');
@@ -673,6 +673,14 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   <span>HP    :</span>
                   <span>{order.phone}</span>
                 </div>
+                {order.alamat && order.alamat !== '-' && (
+                  <div className="flex justify-between items-start gap-1 pt-0.5">
+                    <span className="shrink-0">{order.opsiPengiriman === 'Ambil di Outlet' ? 'AMBIL :' : 'ALAMAT:'}</span>
+                    <span className="text-right uppercase text-[9px] break-words max-w-[140px] font-medium leading-tight">
+                      {order.alamat}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Dotted separator */}
@@ -734,7 +742,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
               {/* Totals */}
               <div className="space-y-0.5 text-[11px]">
-                {order.opsiPengiriman === 'Diantar ke Alamat' ? (() => {
+                {(() => {
                   const rawSubtotal = order.items && order.items.length > 0
                     ? order.items.reduce((sum, it) => sum + getItemPricing(it).subtotal, 0)
                     : order.totalHarga;
@@ -742,30 +750,36 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   if (ongkirVal === 0 && order.totalHarga > rawSubtotal && rawSubtotal > 0) {
                     ongkirVal = Math.max(0, order.totalHarga - rawSubtotal);
                   }
-                  const displaySubtotal = order.totalHarga - ongkirVal;
+                  const hasOngkir = ongkirVal > 0 || (order.totalHarga > rawSubtotal && rawSubtotal > 0);
+                  const displaySubtotal = hasOngkir ? (order.totalHarga - ongkirVal) : rawSubtotal;
+
+                  if (hasOngkir) {
+                    return (
+                      <>
+                        <div className="flex justify-between text-stone-700 text-[10.5px]">
+                          <span>SUBTOTAL:</span>
+                          <span>{formatRupiah(displaySubtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-stone-700 text-[10.5px]">
+                          <span>ONGKIR:</span>
+                          <span>{formatRupiah(ongkirVal)}</span>
+                        </div>
+                        <div className="border-b border-dashed border-black my-1" />
+                        <div className="flex justify-between font-black text-[12px] pt-0.5">
+                          <span>TOTAL:</span>
+                          <span>{formatRupiah(order.totalHarga)}</span>
+                        </div>
+                      </>
+                    );
+                  }
+
                   return (
-                    <>
-                      <div className="flex justify-between text-stone-700 text-[10.5px]">
-                        <span>SUBTOTAL:</span>
-                        <span>{formatRupiah(displaySubtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-stone-700 text-[10.5px]">
-                        <span>ONGKIR:</span>
-                        <span>{formatRupiah(ongkirVal)}</span>
-                      </div>
-                      <div className="border-b border-dashed border-black my-1" />
-                      <div className="flex justify-between font-black text-[12px] pt-0.5">
-                        <span>TOTAL:</span>
-                        <span>{formatRupiah(order.totalHarga)}</span>
-                      </div>
-                    </>
+                    <div className="flex justify-between font-black text-[12px] pt-0.5">
+                      <span>TOTAL:</span>
+                      <span>{formatRupiah(order.totalHarga)}</span>
+                    </div>
                   );
-                })() : (
-                  <div className="flex justify-between font-black text-[12px] pt-0.5">
-                    <span>TOTAL:</span>
-                    <span>{formatRupiah(order.totalHarga)}</span>
-                  </div>
-                )}
+                })()}
               </div>
 
               {/* Notes if any */}

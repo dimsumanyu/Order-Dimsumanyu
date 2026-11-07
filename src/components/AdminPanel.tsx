@@ -1160,13 +1160,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <p className="text-red-600 font-black text-sm">
                             {formatRupiah(order.totalHarga)}
                           </p>
-                          {order.opsiPengiriman === 'Diantar ke Alamat' && (
-                            <span className="text-[10px] text-stone-500 font-semibold">
-                              {order.ongkir && order.ongkir > 0
-                                ? `(Termasuk Ongkir ${formatRupiah(order.ongkir)})`
-                                : '(Ongkir: Rp 0)'}
-                            </span>
-                          )}
+                          {(() => {
+                            const rawSub = order.items && order.items.length > 0
+                              ? order.items.reduce((s, it) => s + (it.subtotal || (it.harga * it.qty)), 0)
+                              : 0;
+                            let oVal = Number(order.ongkir) || 0;
+                            if (oVal === 0 && order.totalHarga > rawSub && rawSub > 0) {
+                              oVal = order.totalHarga - rawSub;
+                            }
+                            if (oVal > 0) {
+                              return (
+                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 mt-0.5">
+                                  + Ongkir {formatRupiah(oVal)}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="text-[10px] text-stone-400 font-normal">
+                                (Tanpa Ongkir)
+                              </span>
+                            );
+                          })()}
                         </div>
 
                         {/* Status selector, WA broadcast & CETAK RESI */}

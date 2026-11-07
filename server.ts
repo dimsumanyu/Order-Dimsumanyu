@@ -293,6 +293,7 @@ async function startServer() {
         catatan: orderData.catatan || '',
         rincianMenu: orderData.rincianMenu || '',
         totalHarga: Number(orderData.totalHarga) || 0,
+        ongkir: Number(orderData.ongkir) || 0,
         items: orderData.items || [],
         createdAt: orderData.createdAt || new Date().toISOString(),
         status: (orderData.status as OrderStatus) || 'Menunggu payment',

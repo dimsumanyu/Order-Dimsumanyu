@@ -649,8 +649,8 @@ function simpanPesanan(orderData) {
       else if (hText.indexOf('waktu') !== -1 || hText.indexOf('tanggal') !== -1 || hText.indexOf('tgl') !== -1) colMap.timestamp = h;
       else if (hText.indexOf('nama') !== -1 || hText.indexOf('pemesan') !== -1 || hText.indexOf('pelanggan') !== -1) colMap.nama = h;
       else if (hText.indexOf('wa') !== -1 || hText.indexOf('whatsapp') !== -1 || hText.indexOf('telepon') !== -1 || hText.indexOf('hp') !== -1) colMap.phone = h;
+      else if (hText.indexOf('opsi') !== -1 || (hText.indexOf('pengiriman') !== -1 && hText.indexOf('alamat') === -1)) colMap.opsi = h;
       else if (hText.indexOf('alamat') !== -1 || hText.indexOf('tujuan') !== -1 || hText.indexOf('lokasi') !== -1) colMap.alamat = h;
-      else if (hText.indexOf('opsi') !== -1 || hText.indexOf('pengiriman') !== -1 || hText.indexOf('ambil') !== -1) colMap.opsi = h;
       else if (hText.indexOf('metode') !== -1 || hText.indexOf('pembayaran') !== -1 || (hText.indexOf('bayar') !== -1 && hText.indexOf('total') === -1)) colMap.metode = h;
       else if (hText.indexOf('catatan') !== -1 || hText.indexOf('note') !== -1 || hText.indexOf('keterangan') !== -1) colMap.catatan = h;
       else if (hText.indexOf('rincian') !== -1 || hText.indexOf('menu') !== -1 || hText.indexOf('item') !== -1) colMap.rincian = h;
@@ -994,8 +994,8 @@ function getPesananFromSheet() {
     else if (hText.indexOf('waktu') !== -1 || hText.indexOf('tanggal') !== -1 || hText.indexOf('tgl') !== -1) colMap.timestamp = h;
     else if (hText.indexOf('nama') !== -1 || hText.indexOf('pemesan') !== -1 || hText.indexOf('pelanggan') !== -1) colMap.nama = h;
     else if (hText.indexOf('wa') !== -1 || hText.indexOf('whatsapp') !== -1 || hText.indexOf('telepon') !== -1 || hText.indexOf('hp') !== -1) colMap.phone = h;
+    else if (hText.indexOf('opsi') !== -1 || (hText.indexOf('pengiriman') !== -1 && hText.indexOf('alamat') === -1)) colMap.opsi = h;
     else if (hText.indexOf('alamat') !== -1 || hText.indexOf('tujuan') !== -1 || hText.indexOf('lokasi') !== -1) colMap.alamat = h;
-    else if (hText.indexOf('opsi') !== -1 || hText.indexOf('pengiriman') !== -1 || hText.indexOf('ambil') !== -1) colMap.opsi = h;
     else if (hText.indexOf('metode') !== -1 || hText.indexOf('pembayaran') !== -1 || (hText.indexOf('bayar') !== -1 && hText.indexOf('total') === -1)) colMap.metode = h;
     else if (hText.indexOf('catatan') !== -1 || hText.indexOf('note') !== -1 || hText.indexOf('keterangan') !== -1) colMap.catatan = h;
     else if (hText.indexOf('rincian') !== -1 || hText.indexOf('menu') !== -1 || hText.indexOf('item') !== -1) colMap.rincian = h;
@@ -1071,9 +1071,32 @@ function getPesananFromSheet() {
       }
     }
 
+    var rawOpsi = String(row[colMap.opsi] || "Diantar ke Alamat").trim();
     var rawAlamat = String(row[colMap.alamat] || "").trim();
+
+    // Normalisasi jika opsi berisi alamat
+    if (rawOpsi.indexOf("Jalan") !== -1 || rawOpsi.indexOf("Jl") !== -1 || rawOpsi.length > 25) {
+      if (!rawAlamat || rawAlamat === "-" || rawAlamat === rawOpsi) {
+        rawAlamat = rawOpsi;
+      }
+      rawOpsi = "Diantar ke Alamat";
+    }
+
     if (rawAlamat.match(/^\\d+x\\s+/i) || rawAlamat.indexOf('(Rp ') !== -1 || rawAlamat === rincian) {
-      rawAlamat = (String(row[colMap.opsi] || "").indexOf("Ambil") !== -1) ? "Ambil langsung di Outlet DIMSUMANYU" : "";
+      rawAlamat = (rawOpsi.indexOf("Ambil") !== -1) ? "Ambil langsung di Outlet DIMSUMANYU" : "";
+    }
+
+    // Hitung ongkir otomatis dari selisih totalHarga dengan subtotal item
+    var itemsSum = 0;
+    for (var itIdx = 0; itIdx < parsedItems.length; itIdx++) {
+      itemsSum += (parsedItems[itIdx].subtotal || 0);
+    }
+    var calculatedOngkir = 0;
+    if (totalHarga > itemsSum && itemsSum > 0) {
+      calculatedOngkir = totalHarga - itemsSum;
+    }
+    if (calculatedOngkir > 0 && rawOpsi === "Ambil di Outlet") {
+      rawOpsi = "Diantar ke Alamat";
     }
 
     orders.push({
@@ -1081,8 +1104,9 @@ function getPesananFromSheet() {
       createdAt: createdAtStr,
       nama: String(row[colMap.nama] || "Pelanggan").trim(),
       phone: String(row[colMap.phone] || "").replace(/^'/, "").trim(),
-      opsiPengiriman: String(row[colMap.opsi] || "Diantar ke Alamat").trim(),
+      opsiPengiriman: rawOpsi,
       alamat: rawAlamat,
+      ongkir: calculatedOngkir,
       metodeBayar: String(row[colMap.metode] || "QRIS").trim(),
       catatan: String(row[colMap.catatan] || "").trim(),
       rincianMenu: rincian,

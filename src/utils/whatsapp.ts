@@ -31,12 +31,17 @@ export function generateWhatsAppMessage(order: OrderData): string {
   });
 
   message += `-------------------------------------------\n`;
-  if (order.opsiPengiriman === 'Diantar ke Alamat') {
-    const itemsSubtotal = order.items && order.items.length > 0
-      ? order.items.reduce((sum, it) => sum + (it.subtotal || 0), 0)
-      : (order.totalHarga - (order.ongkir || 0));
-    const ongkirVal = order.ongkir || 0;
-    message += `• *Subtotal Menu:* ${formatRupiah(itemsSubtotal)}\n`;
+  const itemsSubtotal = order.items && order.items.length > 0
+    ? order.items.reduce((sum, it) => sum + (it.subtotal || 0), 0)
+    : (order.totalHarga - (order.ongkir || 0));
+  let ongkirVal = Number(order.ongkir) || 0;
+  if (ongkirVal === 0 && order.totalHarga > itemsSubtotal && itemsSubtotal > 0) {
+    ongkirVal = order.totalHarga - itemsSubtotal;
+  }
+  const isDelivery = order.opsiPengiriman !== 'Ambil di Outlet' || ongkirVal > 0;
+
+  if (isDelivery) {
+    message += `• *Subtotal Menu:* ${formatRupiah(order.totalHarga - ongkirVal)}\n`;
     if (ongkirVal > 0) {
       message += `• *Ongkos Kirim:* ${formatRupiah(ongkirVal)}\n`;
     } else {

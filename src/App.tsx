@@ -402,15 +402,28 @@ export default function App() {
         cleanAlamat = order.opsiPengiriman === 'Ambil di Outlet' ? 'Ambil langsung di Outlet DIMSUMANYU' : '';
       }
 
-      // Ensure ongkir is accurately set and never biased if order was synced from sheets or older format
+      // If opsiPengiriman is actually an address string, normalize it
+      let cleanOpsi: ShippingOption = (order.opsiPengiriman || 'Diantar ke Alamat') as ShippingOption;
+      if (cleanOpsi !== 'Ambil di Outlet' && cleanOpsi !== 'Diantar ke Alamat') {
+        if (!cleanAlamat || cleanAlamat === cleanOpsi || cleanAlamat === '-') {
+          cleanAlamat = String(cleanOpsi);
+        }
+        cleanOpsi = 'Diantar ke Alamat';
+      }
+
+      // Ensure ongkir is accurately set by calculating difference between totalHarga and itemsSubtotal
       const itemsSubtotal = updatedItems.reduce((sum, it) => sum + (it.subtotal || (it.harga * it.qty)), 0);
       let cleanOngkir = Number(order.ongkir) || 0;
-      if (cleanOngkir === 0 && order.opsiPengiriman === 'Diantar ke Alamat' && order.totalHarga > itemsSubtotal && itemsSubtotal > 0) {
-        cleanOngkir = Math.max(0, order.totalHarga - itemsSubtotal);
+      if (order.totalHarga > itemsSubtotal && itemsSubtotal > 0) {
+        cleanOngkir = Math.max(cleanOngkir, order.totalHarga - itemsSubtotal);
+      }
+      if (cleanOngkir > 0 && cleanOpsi !== 'Diantar ke Alamat') {
+        cleanOpsi = 'Diantar ke Alamat';
       }
 
       return {
         ...order,
+        opsiPengiriman: cleanOpsi,
         alamat: cleanAlamat,
         items: updatedItems,
         ongkir: cleanOngkir,

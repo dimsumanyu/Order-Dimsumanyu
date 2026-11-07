@@ -63,6 +63,30 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
             <span>Pengiriman:</span>
             <span className="font-bold text-stone-900">{order.opsiPengiriman}</span>
           </div>
+          {(() => {
+            const rawSubtotal = order.items && order.items.length > 0
+              ? order.items.reduce((s, it) => s + (it.subtotal || (it.harga * it.qty)), 0)
+              : 0;
+            let ongkirVal = Number(order.ongkir) || 0;
+            if (ongkirVal === 0 && order.totalHarga > rawSubtotal && rawSubtotal > 0) {
+              ongkirVal = order.totalHarga - rawSubtotal;
+            }
+            if (ongkirVal > 0) {
+              return (
+                <>
+                  <div className="flex justify-between text-stone-600">
+                    <span>Subtotal Menu:</span>
+                    <span className="font-medium text-stone-800">{formatRupiah(order.totalHarga - ongkirVal)}</span>
+                  </div>
+                  <div className="flex justify-between text-stone-600">
+                    <span>Ongkos Kirim:</span>
+                    <span className="font-bold text-emerald-700">{formatRupiah(ongkirVal)}</span>
+                  </div>
+                </>
+              );
+            }
+            return null;
+          })()}
           <div className="flex justify-between text-stone-900 pt-2 border-t border-stone-200 font-black text-sm">
             <span>Total Tagihan:</span>
             <span className="text-red-600">{formatRupiah(order.totalHarga)}</span>
