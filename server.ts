@@ -171,11 +171,44 @@ async function startServer() {
     res.json({ success: true, menu, target });
   });
 
+  function sanitizeMenuItem(item: MenuItem): MenuItem {
+    if (!item) return item;
+    let nama = String(item.nama || '').trim();
+    let kategori = String(item.kategori || 'DIMSUM').trim().toUpperCase();
+    let harga = Number(item.harga) || 0;
+
+    if (nama.startsWith('menu-17') || nama.startsWith('menu-') || (kategori.length > 5 && /\b(KUKUS|GORENG|MENTAI|FROZEN|PAKET|ISI|PCS)\b/i.test(kategori) && nama.length > 20)) {
+      if (kategori && kategori.length > 3) {
+        nama = kategori;
+        kategori = 'DIMSUM FROZEN';
+        if (harga <= 0 || harga < 1000) {
+          if (nama.includes('6 PCS')) harga = 25000;
+          else if (nama.includes('8 PCS')) harga = 33000;
+          else if (nama.includes('5 PCS')) harga = 25000;
+          else if (nama.includes('7 PCS')) harga = 35000;
+          else if (nama.includes('16 PCS')) harga = 72000;
+          else harga = 25000;
+        }
+      }
+    }
+
+    if (/\bISI\s+\d+\s+PCS\b/i.test(kategori) || (kategori.length > 20 && !kategori.startsWith('PAKET'))) {
+      if (kategori.includes('FROZEN')) kategori = 'DIMSUM FROZEN';
+      else if (kategori.includes('KUKUS')) kategori = 'DIMSUM KUKUS';
+      else if (kategori.includes('GORENG')) kategori = 'DIMSUM GORENG';
+      else if (kategori.includes('MIX')) kategori = 'PAKET MIX';
+      else kategori = 'DIMSUM';
+    }
+
+    return { ...item, nama, kategori, harga };
+  }
+
   app.post('/api/menu/save-item', (req, res) => {
-    const item: MenuItem = req.body;
-    if (!item || !item.id) {
+    const rawItem: MenuItem = req.body;
+    if (!rawItem || !rawItem.id) {
       return res.status(400).json({ success: false, error: 'Data menu tidak valid' });
     }
+    const item = sanitizeMenuItem(rawItem);
     const idx = menu.findIndex(m => m.id === item.id);
     if (idx >= 0) {
       menu[idx] = { ...menu[idx], ...item };

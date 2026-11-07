@@ -22,6 +22,54 @@ import { INITIAL_MENU, INITIAL_SETTINGS } from './data/initialMenu';
 import { formatRupiah } from './utils/whatsapp';
 import { ArrowRight, Lock, Instagram, Download } from 'lucide-react';
 
+export function cleanAndSanitizeMenuItem(item: MenuItem): MenuItem {
+  if (!item) return item;
+  let nama = String(item.nama || '').trim();
+  let kategori = String(item.kategori || 'DIMSUM').trim().toUpperCase();
+  let harga = Number(item.harga) || 0;
+
+  // 1. Fix inverted name and category where ID was saved as name and food name as category
+  if (
+    nama.startsWith('menu-17') ||
+    nama.startsWith('menu-') ||
+    (kategori.length > 5 && /\b(KUKUS|GORENG|MENTAI|FROZEN|PAKET|ISI|PCS)\b/i.test(kategori) && nama.length > 20)
+  ) {
+    if (kategori && kategori.length > 3) {
+      nama = kategori;
+      kategori = 'DIMSUM FROZEN';
+      if (harga <= 0 || harga < 1000) {
+        if (nama.includes('6 PCS')) harga = 25000;
+        else if (nama.includes('8 PCS')) harga = 33000;
+        else if (nama.includes('5 PCS')) harga = 25000;
+        else if (nama.includes('7 PCS')) harga = 35000;
+        else if (nama.includes('16 PCS')) harga = 72000;
+        else harga = 25000;
+      }
+    }
+  }
+
+  // 2. Prevent single product names from becoming category pills
+  if (/\bISI\s+\d+\s+PCS\b/i.test(kategori) || (kategori.length > 20 && !kategori.startsWith('PAKET'))) {
+    if (kategori.includes('FROZEN')) kategori = 'DIMSUM FROZEN';
+    else if (kategori.includes('KUKUS')) kategori = 'DIMSUM KUKUS';
+    else if (kategori.includes('GORENG')) kategori = 'DIMSUM GORENG';
+    else if (kategori.includes('MIX')) kategori = 'PAKET MIX';
+    else kategori = 'DIMSUM';
+  }
+
+  return {
+    ...item,
+    nama,
+    kategori,
+    harga,
+  };
+}
+
+export function cleanAndSanitizeMenuList(list: MenuItem[]): MenuItem[] {
+  if (!Array.isArray(list)) return [];
+  return list.map(cleanAndSanitizeMenuItem);
+}
+
 export default function App() {
   // Persisted Active View ('order' | 'admin') across page reloads and browser refreshes
   const [activeView, setActiveView] = useState<'order' | 'admin'>(() => {
@@ -79,7 +127,7 @@ export default function App() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
     try {
       const saved = localStorage.getItem('dimsumanyu_menu');
-      return saved ? JSON.parse(saved) : INITIAL_MENU;
+      return saved ? cleanAndSanitizeMenuList(JSON.parse(saved)) : INITIAL_MENU;
     } catch {
       return INITIAL_MENU;
     }
@@ -354,7 +402,7 @@ export default function App() {
       if (data && (Array.isArray(data.menu) || Array.isArray(data))) {
         const list: MenuItem[] = Array.isArray(data.menu) ? data.menu : data;
         if (list.length > 0) {
-          return list;
+          return cleanAndSanitizeMenuList(list);
         }
       }
     } catch (e) {
@@ -661,9 +709,11 @@ export default function App() {
     } catch {}
   };
 
-  // Extract Categories
+  // Extract Categories (Ensuring single product names never spill into category pills)
   const categories = useMemo(() => {
-    const unique = Array.from(new Set(menuItems.map(m => m.kategori)));
+    const rawList = menuItems.map(m => m.kategori.trim().toUpperCase());
+    const valid = rawList.filter(cat => cat && !/\bISI\s+\d+\s+PCS\b/i.test(cat) && cat.length < 25);
+    const unique = Array.from(new Set(valid));
     return ['ALL', ...unique];
   }, [menuItems]);
 
@@ -1012,10 +1062,11 @@ export default function App() {
     }
   };
 
-  const handleSaveMenuItem = async (item: MenuItem) => {
+  const handleSaveMenuItem = async (rawItem: MenuItem) => {
+    const item = cleanAndSanitizeMenuItem(rawItem);
     try {
       setMenuItems(prev => {
-        const index = prev.findIndex(m => m.id === item.id);
+        const index = prev.findIndex(m => m.id === item.id || m.nama.toLowerCase() === item.nama.toLowerCase());
         let updated: MenuItem[];
         if (index >= 0) {
           updated = [...prev];

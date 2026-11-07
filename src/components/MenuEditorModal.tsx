@@ -68,13 +68,17 @@ interface MenuEditorModalProps {
 }
 
 const CATEGORY_PRESETS = [
-  'KUKUS',
-  'GORENG',
-  'MENTAI',
-  'FROZEN',
-  'MINUMAN',
-  'PAKET',
-  'TOPPING',
+  'DIMSUM KUKUS',
+  'DIMSUM GORENG',
+  'DIMSUM MENTAI',
+  'DIMSUM FROZEN',
+  'PAKET MIX ISI 6',
+  'PAKET MIX ISI 8',
+  'PAKET FAMILY',
+  'PAKET FAMILY MIX',
+  'DRINK',
+  'EXTRA SAUS',
+  'PAKET BIRTHDAY',
 ];
 
 export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({

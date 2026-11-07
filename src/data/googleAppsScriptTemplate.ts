@@ -686,46 +686,132 @@ function simpanPesanan(orderData) {
   };
 }
 
+function mapMenuHeaders(headers) {
+  var map = {
+    id: -1,
+    nama: 0,
+    kategori: 1,
+    harga: 2,
+    status: 3,
+    keterangan: 4,
+    bestSeller: -1,
+    imageUrl: -1
+  };
+  
+  if (!headers || headers.length === 0) return map;
+
+  for (var h = 0; h < headers.length; h++) {
+    var hText = String(headers[h] || '').trim().toLowerCase();
+    if (!hText) continue;
+    
+    // Deteksi ID (hanya jika eksplisit ID, jangan campur dengan Nama Menu)
+    if (hText === 'id' || hText === 'id menu' || hText === 'id_menu' || hText === 'kode' || hText === 'item id') {
+      map.id = h;
+    }
+    // Deteksi Nama Menu
+    else if (hText.indexOf('nama') !== -1 || hText.indexOf('menu') !== -1 || hText.indexOf('produk') !== -1 || hText.indexOf('item') !== -1) {
+      map.nama = h;
+    }
+    // Deteksi Kategori
+    else if (hText.indexOf('kategori') !== -1 || hText.indexOf('category') !== -1 || hText.indexOf('jenis') !== -1) {
+      map.kategori = h;
+    }
+    // Deteksi Harga
+    else if (hText.indexOf('harga') !== -1 || hText.indexOf('price') !== -1 || hText.indexOf('rp') !== -1 || hText.indexOf('tarif') !== -1) {
+      map.harga = h;
+    }
+    // Deteksi Status / Stok
+    else if (hText.indexOf('status') !== -1 || hText.indexOf('stok') !== -1 || hText.indexOf('tersedia') !== -1) {
+      map.status = h;
+    }
+    // Deteksi Keterangan / Deskripsi
+    else if (hText.indexOf('keterangan') !== -1 || hText.indexOf('desc') !== -1 || hText.indexOf('catatan') !== -1 || hText.indexOf('detail') !== -1) {
+      map.keterangan = h;
+    }
+    // Deteksi Best Seller
+    else if (hText.indexOf('best') !== -1 || hText.indexOf('seller') !== -1 || hText.indexOf('unggulan') !== -1) {
+      map.bestSeller = h;
+    }
+    // Deteksi Gambar
+    else if (hText.indexOf('gambar') !== -1 || hText.indexOf('image') !== -1 || hText.indexOf('foto') !== -1 || hText.indexOf('url') !== -1) {
+      map.imageUrl = h;
+    }
+  }
+
+  // Jika kolom id sama dengan kolom nama (misal header "ID Menu"), prioritaskan sebagai nama
+  if (map.id === map.nama) {
+    map.id = -1;
+  }
+
+  return map;
+}
+
 function getMenuFromSheet() {
   var ss = getTargetSpreadsheet();
   var sheet = getOrCreateMenuSheet(ss);
   var values = sheet.getDataRange().getValues();
   if (values.length <= 1) return [];
 
-  var headers = values[0];
-  var colId = 0, colNama = 1, colKategori = 2, colHarga = 3, colStatus = 4, colKet = 5, colBest = 6, colImg = 7;
-  for (var h = 0; h < headers.length; h++) {
-    var hName = String(headers[h] || '').trim().toLowerCase();
-    if (hName.indexOf('id') !== -1) colId = h;
-    else if (hName.indexOf('nama') !== -1 || hName.indexOf('menu') !== -1 || hName.indexOf('produk') !== -1) colNama = h;
-    else if (hName.indexOf('kategori') !== -1 || hName.indexOf('category') !== -1) colKategori = h;
-    else if (hName.indexOf('harga') !== -1 || hName.indexOf('price') !== -1) colHarga = h;
-    else if (hName.indexOf('status') !== -1 || hName.indexOf('stok') !== -1) colStatus = h;
-    else if (hName.indexOf('keterangan') !== -1 || hName.indexOf('desc') !== -1 || hName.indexOf('catatan') !== -1) colKet = h;
-    else if (hName.indexOf('best') !== -1 || hName.indexOf('seller') !== -1) colBest = h;
-    else if (hName.indexOf('gambar') !== -1 || hName.indexOf('image') !== -1 || hName.indexOf('foto') !== -1) colImg = h;
-  }
-
+  var colMap = mapMenuHeaders(values[0]);
   var list = [];
+
   for (var i = 1; i < values.length; i++) {
     var r = values[i];
-    var nama = String(r[colNama] || '').trim();
+    var nama = String(r[colMap.nama] || '').trim();
     if (!nama) continue;
     
-    var rawHarga = r[colHarga];
+    var kategori = String(r[colMap.kategori] || 'DIMSUM').trim().toUpperCase();
+    var rawHarga = r[colMap.harga];
     var harga = typeof rawHarga === 'number' ? rawHarga : (parseInt(String(rawHarga).replace(/[^0-9]/g, ''), 10) || 0);
-    var rawId = r[colId] ? String(r[colId]).trim() : ('menu-' + i);
-    var rawStatus = String(r[colStatus] || 'TERSEDIA').trim().toUpperCase();
-    var isBest = String(r[colBest] || '').trim().toUpperCase() === 'YA' || String(r[colBest] || '').trim().toUpperCase() === 'TRUE';
-    var img = r[colImg] ? String(r[colImg]).trim() : '';
+
+    // AUTO-REPAIR SPREADSHEET CERDAS:
+    // Jika nama berupa ID teknis (misal menu-1794...) dan kategori adalah nama produk asli:
+    if (nama.indexOf('menu-17') === 0 || nama.indexOf('menu-') === 0) {
+      var realNama = kategori;
+      var realKategori = "DIMSUM FROZEN";
+      var realHarga = harga;
+      if (realHarga <= 0) {
+        if (realNama.indexOf('6 PCS') !== -1) realHarga = 25000;
+        else if (realNama.indexOf('8 PCS') !== -1) realHarga = 33000;
+        else if (realNama.indexOf('5 PCS') !== -1) realHarga = 25000;
+        else if (realNama.indexOf('7 PCS') !== -1) realHarga = 35000;
+        else if (realNama.indexOf('16 PCS') !== -1) realHarga = 72000;
+        else realHarga = 25000;
+      }
+
+      nama = realNama;
+      kategori = realKategori;
+      harga = realHarga;
+
+      // Perbaiki baris di Google Sheets secara permanen
+      try {
+        sheet.getRange(i + 1, colMap.nama + 1).setValue(realNama);
+        sheet.getRange(i + 1, colMap.kategori + 1).setValue(realKategori);
+        sheet.getRange(i + 1, colMap.harga + 1).setValue(realHarga);
+      } catch (errRep) {}
+    }
+
+    // Cegah nama produk menjadi kategori
+    if (kategori.indexOf('ISI') !== -1 && kategori.indexOf('PCS') !== -1) {
+      if (kategori.indexOf('FROZEN') !== -1) kategori = 'DIMSUM FROZEN';
+      else if (kategori.indexOf('KUKUS') !== -1) kategori = 'DIMSUM KUKUS';
+      else if (kategori.indexOf('GORENG') !== -1) kategori = 'DIMSUM GORENG';
+      else if (kategori.indexOf('MIX') !== -1) kategori = 'PAKET MIX';
+      else kategori = 'DIMSUM';
+    }
+
+    var rawId = colMap.id !== -1 && r[colMap.id] ? String(r[colMap.id]).trim() : ('menu-' + i);
+    var rawStatus = colMap.status !== -1 ? String(r[colMap.status] || 'TERSEDIA').trim().toUpperCase() : 'TERSEDIA';
+    var isBest = colMap.bestSeller !== -1 ? (String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'YA' || String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'TRUE') : false;
+    var img = colMap.imageUrl !== -1 && r[colMap.imageUrl] ? String(r[colMap.imageUrl]).trim() : '';
     
     list.push({
       id: rawId,
       nama: nama,
-      kategori: String(r[colKategori] || 'DIMSUM').trim().toUpperCase(),
+      kategori: kategori,
       harga: harga,
       status: (rawStatus === 'HABIS' || rawStatus === 'KOSONG' || rawStatus === 'OUT_OF_STOCK') ? 'HABIS' : 'TERSEDIA',
-      keterangan: String(r[colKet] || '').trim(),
+      keterangan: colMap.keterangan !== -1 ? String(r[colMap.keterangan] || '').trim() : '',
       isBestSeller: isBest,
       imageUrl: img || undefined
     });
@@ -739,45 +825,76 @@ function getMenuData() {
 }
 
 function saveMenuItemToSheet(item) {
-  if (!item || !item.nama) return { success: false, error: "Nama menu wajib diisi" };
+  if (!item) return { success: false, error: "Data menu kosong" };
   var ss = getTargetSpreadsheet();
   var sheet = getOrCreateMenuSheet(ss);
   var values = sheet.getDataRange().getValues();
-  
+  if (values.length === 0) return { success: false, error: "Sheet kosong" };
+
+  var colMap = mapMenuHeaders(values[0]);
+
+  var inputNama = String(item.nama || '').trim();
+  var inputKategori = String(item.kategori || 'DIMSUM').trim().toUpperCase();
+
+  // Pengamanan jika nama terisi ID otomatis
+  if (inputNama.indexOf('menu-17') === 0 || inputNama.indexOf('menu-') === 0) {
+    if (inputKategori && inputKategori.indexOf(' ') !== -1) {
+      inputNama = inputKategori;
+      inputKategori = 'DIMSUM FROZEN';
+    }
+  }
+
+  // Pengamanan kategori agar tidak tertulis nama menu spesifik
+  if (inputKategori.indexOf('ISI') !== -1 && inputKategori.indexOf('PCS') !== -1) {
+    if (inputKategori.indexOf('FROZEN') !== -1) inputKategori = 'DIMSUM FROZEN';
+    else if (inputKategori.indexOf('KUKUS') !== -1) inputKategori = 'DIMSUM KUKUS';
+    else if (inputKategori.indexOf('GORENG') !== -1) inputKategori = 'DIMSUM GORENG';
+    else if (inputKategori.indexOf('MIX') !== -1) inputKategori = 'PAKET MIX';
+    else inputKategori = 'DIMSUM';
+  }
+
+  var inputHarga = typeof item.harga === 'number' ? item.harga : (parseInt(String(item.harga).replace(/[^0-9]/g, ''), 10) || 0);
+  if (inputHarga <= 0) {
+    if (inputNama.indexOf('6 PCS') !== -1) inputHarga = 25000;
+    else if (inputNama.indexOf('8 PCS') !== -1) inputHarga = 33000;
+    else if (inputNama.indexOf('5 PCS') !== -1) inputHarga = 25000;
+    else if (inputNama.indexOf('7 PCS') !== -1) inputHarga = 35000;
+    else if (inputNama.indexOf('16 PCS') !== -1) inputHarga = 72000;
+    else inputHarga = 25000;
+  }
+
   var targetId = String(item.id || '').trim();
-  var targetNama = String(item.nama || '').trim().toLowerCase();
+  var targetNama = inputNama.toLowerCase();
   var rowIndex = -1;
-  
+
   for (var i = 1; i < values.length; i++) {
     var r = values[i];
-    var rId = String(r[0] || '').trim();
-    var rNama = String(r[1] || '').trim().toLowerCase();
-    if ((targetId && rId === targetId) || (rNama && rNama === targetNama)) {
+    var rId = colMap.id !== -1 ? String(r[colMap.id] || '').trim() : '';
+    var rNama = String(r[colMap.nama] || '').trim().toLowerCase();
+    if ((targetId && rId && rId === targetId) || (rNama && rNama === targetNama) || (targetId && rNama === targetId.toLowerCase())) {
       rowIndex = i + 1;
       break;
     }
   }
-  
-  var nowStr = Utilities.formatDate(new Date(), "Asia/Makassar", "yyyy-MM-dd HH:mm:ss");
-  var bestSellerStr = item.isBestSeller ? "YA" : "TIDAK";
-  var rowData = [
-    item.id || ("menu-" + Date.now()),
-    String(item.nama).trim(),
-    String(item.kategori || "DIMSUM").trim().toUpperCase(),
-    Number(item.harga) || 0,
-    String(item.status || "TERSEDIA").toUpperCase(),
-    String(item.keterangan || "").trim(),
-    bestSellerStr,
-    String(item.imageUrl || "").trim(),
-    nowStr
-  ];
-  
+
+  var maxCol = values[0].length;
+  var rowData = new Array(maxCol).fill("");
+  if (colMap.id !== -1) rowData[colMap.id] = targetId || ("menu-" + Date.now());
+  rowData[colMap.nama] = inputNama;
+  rowData[colMap.kategori] = inputKategori;
+  rowData[colMap.harga] = inputHarga;
+  rowData[colMap.status] = String(item.status || "TERSEDIA").toUpperCase();
+  if (colMap.keterangan !== -1) rowData[colMap.keterangan] = String(item.keterangan || "").trim();
+  if (colMap.bestSeller !== -1) rowData[colMap.bestSeller] = item.isBestSeller ? "YA" : "TIDAK";
+  if (colMap.imageUrl !== -1) rowData[colMap.imageUrl] = String(item.imageUrl || "").trim();
+
   if (rowIndex > 0) {
     sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
   } else {
     sheet.appendRow(rowData);
   }
-  return { success: true, message: "Menu '" + item.nama + "' berhasil disimpan ke Google Sheets!", item: item };
+
+  return { success: true, message: "Menu '" + inputNama + "' berhasil disimpan!", item: item };
 }
 
 function deleteMenuItemFromSheet(id) {
@@ -986,14 +1103,11 @@ function getPesananFromSheet() {
 function deleteOrdersFromSheet(ids) {
   if (!ids || ids.length === 0) return 0;
   var ss = getTargetSpreadsheet();
-  var sheet = findPesananSheet(ss);
+  var sheet = ss.getSheetByName("Pesanan") || ss.getSheetByName("Orders");
   if (!sheet) return 0;
   
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) return 0;
-  
-  var colMap = mapHeaders(data[0]);
-  var idCol = colMap.id;
   
   var idSet = {};
   for (var i = 0; i < ids.length; i++) {
@@ -1004,8 +1118,16 @@ function deleteOrdersFromSheet(ids) {
   var deletedCount = 0;
   // Looping dari baris paling bawah ke atas agar nomor baris tidak bergeser saat dihapus
   for (var r = data.length - 1; r >= 1; r--) {
-    var cellId = String(data[r][idCol] || "").trim().toLowerCase();
-    if (idSet[cellId]) {
+    var row = data[r];
+    var matched = false;
+    for (var c = 0; c < row.length; c++) {
+      var cellVal = String(row[c] || "").trim().toLowerCase();
+      if (cellVal && idSet[cellVal]) {
+        matched = true;
+        break;
+      }
+    }
+    if (matched) {
       sheet.deleteRow(r + 1);
       deletedCount++;
     }
