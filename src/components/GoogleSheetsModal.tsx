@@ -350,9 +350,9 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
               <div className="mb-2 bg-emerald-50 border border-emerald-300 p-2.5 rounded-xl text-[11px] text-emerald-950 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-extrabold text-emerald-900">Versi 2.2 (Pembaruan Sinkronisasi Multi-Device Real-Time):</span>
+                  <span className="font-extrabold text-emerald-900">Versi 2.4 (Sinkronisasi Menu &amp; Pesanan Multi-Device Real-Time):</span>
                   <p className="mt-0.5 text-emerald-800 leading-relaxed">
-                    Dilengkapi dengan fungsi <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">getOrders</code> dan <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">updateStatus</code>. Setelah menempel kode ini dan men-deploy Versi Baru, semua pesanan dari iPhone 13 dan semua HP langsung masuk otomatis ke panel pengelola!
+                    Dilengkapi dengan fungsi <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">getMenu</code>, <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">saveMenuItem</code>, <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">getOrders</code>, dan <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-emerald-200">updateStatus</code>. Begitu ditempel dan di-deploy Versi Baru, penambahan menu baru di HP kasir/admin atau di spreadsheet otomatis sinkron ke seluruh HP pelanggan!
                   </p>
                 </div>
               </div>
@@ -360,7 +360,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
               <div className="flex items-center justify-between bg-stone-900 text-stone-200 px-3.5 py-2.5 rounded-t-xl text-[11px] font-mono">
                 <span className="flex items-center gap-1.5 font-bold text-white">
                   <Terminal className="w-4 h-4 text-emerald-400" />
-                  Code.gs (Versi 2.2 - Sinkronisasi iPhone &amp; Semua Perangkat)
+                  Code.gs (Versi 2.4 - Sinkronisasi Menu &amp; Pesanan Real-Time)
                 </span>
                 <button
                   onClick={handleCopyCode}

@@ -1314,6 +1314,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <UtensilsCrossed className="w-3.5 h-3.5" />
                 <span>+ Edit / Kelola Menu</span>
               </button>
+              {onRefreshOrders && (
+                <button
+                  type="button"
+                  onClick={onRefreshOrders}
+                  disabled={isRefreshing}
+                  className="bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-800 text-xs font-bold border border-emerald-300 px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                  title="Tarik menu dan pesanan terbaru dari Google Sheets"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
+                  <span>{isRefreshing ? 'Menyinkronkan...' : 'Sinkron dari Sheets'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onResetMenu}

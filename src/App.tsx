@@ -338,6 +338,31 @@ export default function App() {
     return null;
   };
 
+  // Helper to fetch menu directly from Google Sheets (Central Source of Truth across all devices)
+  const fetchDirectMenuFromGoogleSheets = async (): Promise<MenuItem[] | null> => {
+    const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+    if (!targetUrl) return null;
+    try {
+      const url = `${targetUrl}?action=getMenu&_t=${Date.now()}`;
+      const res = await fetch(url, { redirect: 'follow' });
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+
+      if (data && (Array.isArray(data.menu) || Array.isArray(data))) {
+        const list: MenuItem[] = Array.isArray(data.menu) ? data.menu : data;
+        if (list.length > 0) {
+          return list;
+        }
+      }
+    } catch (e) {
+      console.warn('Direct fetch menu from Google Sheets failed:', e);
+    }
+    return null;
+  };
+
   // Dedicated real-time order refresher across all devices (iPhone 13, iPhone 15, desktop, etc.)
   const fetchOrdersOnly = async () => {
     try {
@@ -429,6 +454,15 @@ export default function App() {
           setSyncFeedback('Pesanan berhasil disegarkan.');
         }
       }
+
+      // Also refresh menu from Google Sheets
+      const sheetMenu = await fetchDirectMenuFromGoogleSheets();
+      if (sheetMenu && Array.isArray(sheetMenu) && sheetMenu.length > 0) {
+        setMenuItems(sheetMenu);
+        try {
+          localStorage.setItem('dimsumanyu_menu', JSON.stringify(sheetMenu));
+        } catch {}
+      }
     } finally {
       setIsRefreshingOrders(false);
       setTimeout(() => setSyncFeedback(null), 6000);
@@ -448,7 +482,14 @@ export default function App() {
           .catch(() => null),
       ]);
 
-      if (resMenu?.menu) {
+      // 2. Fetch menu from Google Sheets (Central Source of Truth)
+      const sheetMenu = await fetchDirectMenuFromGoogleSheets();
+      if (sheetMenu && Array.isArray(sheetMenu) && sheetMenu.length > 0) {
+        setMenuItems(sheetMenu);
+        try {
+          localStorage.setItem('dimsumanyu_menu', JSON.stringify(sheetMenu));
+        } catch {}
+      } else if (resMenu?.menu) {
         setMenuItems(resMenu.menu);
         localStorage.setItem('dimsumanyu_menu', JSON.stringify(resMenu.menu));
       }
@@ -920,12 +961,14 @@ export default function App() {
 
   const handleToggleMenuStatus = async (id: string) => {
     try {
+      let targetStatus: 'TERSEDIA' | 'HABIS' = 'TERSEDIA';
       setMenuItems(prev => {
         const updated = prev.map(item => {
           if (item.id === id) {
+            targetStatus = item.status === 'TERSEDIA' ? 'HABIS' : 'TERSEDIA';
             return {
               ...item,
-              status: (item.status === 'TERSEDIA' ? 'HABIS' : 'TERSEDIA') as 'TERSEDIA' | 'HABIS',
+              status: targetStatus,
             };
           }
           return item;
@@ -934,6 +977,7 @@ export default function App() {
         return updated;
       });
 
+      // 1. Fullstack server dispatch
       try {
         await fetch('/api/menu/toggle-status', {
           method: 'POST',
@@ -941,6 +985,14 @@ export default function App() {
           body: JSON.stringify({ id }),
         });
       } catch {}
+
+      // 2. Google Sheets sync
+      const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+      if (targetUrl) {
+        try {
+          fetch(`${targetUrl}?action=toggleMenuStatus&id=${encodeURIComponent(id)}&status=${targetStatus}&_t=${Date.now()}`, { mode: 'no-cors' }).catch(() => {});
+        } catch {}
+      }
     } catch (err: any) {
       alert('Gagal mengubah status menu: ' + err.message);
     }
@@ -975,6 +1027,7 @@ export default function App() {
         return updated;
       });
 
+      // 1. Fullstack server dispatch
       try {
         await fetch('/api/menu/save-item', {
           method: 'POST',
@@ -982,6 +1035,26 @@ export default function App() {
           body: JSON.stringify(item),
         });
       } catch {}
+
+      // 2. Google Sheets sync (Two-way cloud persistence across all devices)
+      const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+      if (targetUrl) {
+        try {
+          // POST
+          fetch(targetUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ action: 'saveMenuItem', item }),
+          }).catch(() => {});
+
+          // GET fallback
+          const getUrl = `${targetUrl}?action=saveMenuItem&payload=${encodeURIComponent(JSON.stringify(item))}&_t=${Date.now()}`;
+          fetch(getUrl, { mode: 'no-cors' }).catch(() => {});
+        } catch (sheetsErr) {
+          console.warn('Sync menu to Google Sheets failed:', sheetsErr);
+        }
+      }
     } catch (err: any) {
       alert('Gagal menyimpan menu: ' + err.message);
     }
@@ -1002,11 +1075,20 @@ export default function App() {
         return next;
       });
 
+      // 1. Fullstack server dispatch
       try {
         await fetch(`/api/menu/item/${encodeURIComponent(id)}`, {
           method: 'DELETE',
         });
       } catch {}
+
+      // 2. Google Sheets sync
+      const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+      if (targetUrl) {
+        try {
+          fetch(`${targetUrl}?action=deleteMenuItem&id=${encodeURIComponent(id)}&_t=${Date.now()}`, { mode: 'no-cors' }).catch(() => {});
+        } catch {}
+      }
     } catch (err: any) {
       alert('Gagal menghapus menu: ' + err.message);
     }
@@ -1014,13 +1096,15 @@ export default function App() {
 
   const handleToggleBestSeller = async (id: string) => {
     try {
+      let targetItem: MenuItem | undefined;
       setMenuItems(prev => {
         const updated = prev.map(item => {
           if (item.id === id) {
-            return {
+            targetItem = {
               ...item,
               isBestSeller: !item.isBestSeller,
             };
+            return targetItem;
           }
           return item;
         });
@@ -1028,6 +1112,7 @@ export default function App() {
         return updated;
       });
 
+      // 1. Fullstack server dispatch
       try {
         await fetch('/api/menu/toggle-bestseller', {
           method: 'POST',
@@ -1035,6 +1120,15 @@ export default function App() {
           body: JSON.stringify({ id }),
         });
       } catch {}
+
+      // 2. Google Sheets sync
+      const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+      if (targetUrl && targetItem) {
+        try {
+          const getUrl = `${targetUrl}?action=saveMenuItem&payload=${encodeURIComponent(JSON.stringify(targetItem))}&_t=${Date.now()}`;
+          fetch(getUrl, { mode: 'no-cors' }).catch(() => {});
+        } catch {}
+      }
     } catch (err: any) {
       alert('Gagal mengubah status best seller: ' + err.message);
     }
