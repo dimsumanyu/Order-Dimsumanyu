@@ -197,7 +197,13 @@ export function createEscPosBuffer(
       // GS ! 0x00
       chunks.push(new Uint8Array([0x1d, 0x21, 0x00]));
     } else {
-      chunks.push(encoder.encode(line + '\n'));
+      // Sanitize multi-byte Unicode characters (such as ☐ \u2610, • \u2022) to pure ASCII
+      // This prevents thermal mini printers from outputting corrupted symbols like â–¡ or ?
+      const sanitizedLine = line
+        .replace(/[\u2610\u25A2\u25A1\u25A0\u2705\u2714\u2713]/g, '[ ]')
+        .replace(/[\u2022\u2023\u25CF\u25CB]/g, '*')
+        .replace(/[\u2013\u2014]/g, '-');
+      chunks.push(encoder.encode(sanitizedLine + '\n'));
     }
   }
 

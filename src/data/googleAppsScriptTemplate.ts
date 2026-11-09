@@ -1,14 +1,12 @@
 /**
  * ==============================================================
- * DIMSUMANYU - INTEGRASI GOOGLE SHEETS & APPS SCRIPT RESMI
- * Script ID: 1nx_JWMQKLVEyXO6ZbXdPQcZEtU8xvOBiSkmW9HSwNLKZsiv22oCldOlU
+ * DIMSUMANYU - SISTEM PEMESANAN RESMI
  * ==============================================================
  */
 
 export const GOOGLE_APPS_SCRIPT_CODE = `/**
  * ==============================================================
- * DIMSUMANYU - INTEGRASI GOOGLE SHEETS & APPS SCRIPT RESMI
- * Script ID: 1nx_JWMQKLVEyXO6ZbXdPQcZEtU8xvOBiSkmW9HSwNLKZsiv22oCldOlU
+ * DIMSUMANYU - SISTEM PEMESANAN RESMI
  * ==============================================================
  * 
  * FITUR TERLENGKAP:
@@ -1035,22 +1033,34 @@ function getPesananFromSheet() {
     var createdAtStr = dateVal instanceof Date ? dateVal.toISOString() : String(dateVal || new Date().toISOString());
     var rincian = String(row[colMap.rincian] || "").trim();
 
-    // Rekonstruksi items agar struk dan rincian menu tampil rapi
+    // Rekonstruksi items agar struk dan rincian menu tampil rapi (Anti-kembar & multiline safe)
     var parsedItems = [];
     if (rincian) {
-      var lines = rincian.replace(/\\r/g, "").split("\\n");
-      for (var l = 0; l < lines.length; l++) {
-        var line = lines[l].trim();
+      var rawLines = rincian.replace(/\r/g, "").split("\n");
+      var mergedLines = [];
+      for (var rl = 0; rl < rawLines.length; rl++) {
+        var trLine = rawLines[rl].trim();
+        if (!trLine) continue;
+        var isNewItem = /^(\d+)\s*x\s+/i.test(trLine) || /^[•\-\*]/.test(trLine) || /^\[\s*\]/.test(trLine);
+        if (!isNewItem && mergedLines.length > 0) {
+          mergedLines[mergedLines.length - 1] += " " + trLine;
+        } else {
+          mergedLines.push(trLine);
+        }
+      }
+
+      for (var l = 0; l < mergedLines.length; l++) {
+        var line = mergedLines[l].trim();
         if (!line) continue;
-        var match = line.match(/^(\\d+)x\\s+(.+)$/i);
+        var match = line.match(/^(\d+)\s*x\s+(.+)$/i);
         if (match) {
           var qty = parseInt(match[1], 10) || 1;
           var itemNama = match[2].trim();
           var itemHarga = 0;
-          var priceMatch = itemNama.match(/\\(?Rp\\.?\\s*([0-9.,]+)\\)?/i);
+          var priceMatch = itemNama.match(/\(?Rp\.?\s*([0-9.,]+)\)?/i);
           if (priceMatch) {
             itemHarga = parseInt(priceMatch[1].replace(/[^0-9]/g, ""), 10) || 0;
-            itemNama = itemNama.replace(/\\(?Rp\\.?\\s*[0-9.,]+\\)?/i, "").trim();
+            itemNama = itemNama.replace(/\(?Rp\.?\s*[0-9.,]+\)?/gi, "").trim();
           }
           parsedItems.push({
             id: 'item-' + l,
@@ -1060,15 +1070,41 @@ function getPesananFromSheet() {
             subtotal: itemHarga * qty
           });
         } else {
-          parsedItems.push({
-            id: 'item-' + l,
-            nama: line,
-            qty: 1,
-            harga: 0,
-            subtotal: 0
-          });
+          if (!line.startsWith("(") || !line.endsWith(")")) {
+            parsedItems.push({
+              id: 'item-' + l,
+              nama: line,
+              qty: 1,
+              harga: 0,
+              subtotal: 0
+            });
+          }
         }
       }
+
+      // Deduplikasi kembaran yang muncul dari nama paket panjang
+      var cleanItems = [];
+      var seenItemMap = {};
+      for (var pi = 0; pi < parsedItems.length; pi++) {
+        var pItem = parsedItems[pi];
+        var pKey = pItem.nama.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (seenItemMap[pKey] !== undefined) {
+          var existIdx = seenItemMap[pKey];
+          var currentSum = 0;
+          for (var si = 0; si < cleanItems.length; si++) {
+            currentSum += cleanItems[si].subtotal;
+          }
+          if (totalHarga > 0 && (currentSum + pItem.subtotal > totalHarga)) {
+            continue;
+          }
+          cleanItems[existIdx].qty += pItem.qty;
+          cleanItems[existIdx].subtotal += pItem.subtotal;
+        } else {
+          seenItemMap[pKey] = cleanItems.length;
+          cleanItems.push(pItem);
+        }
+      }
+      parsedItems = cleanItems;
     }
 
     var rawOpsi = String(row[colMap.opsi] || "Diantar ke Alamat").trim();

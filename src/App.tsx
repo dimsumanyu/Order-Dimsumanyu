@@ -305,25 +305,53 @@ export default function App() {
     return ordersList.map((order) => {
       if (!order) return order;
 
+      // 1. Parse raw lines from rincianMenu if items is empty or contains split description fragments
       let rawItems = order.items;
-      if ((!rawItems || rawItems.length === 0) && order.rincianMenu) {
-        const lines = order.rincianMenu.split(/\r?\n|,\s*(?=\d+x|\b[A-Za-z])/i).filter(Boolean);
-        rawItems = lines.map((l, lIdx) => {
-          let lineQty = 1;
-          let lineNama = l.trim();
-          const qMatch = lineNama.match(/^(\d+)x\s+(.+)$/i);
-          if (qMatch) {
-            lineQty = parseInt(qMatch[1], 10) || 1;
-            lineNama = qMatch[2].trim();
+      if (order.rincianMenu) {
+        const rawLines = order.rincianMenu.replace(/\r/g, '').split('\n').filter(Boolean);
+        const mergedLines: string[] = [];
+        for (const line of rawLines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          // Only lines with a leading quantity (e.g. "1x", "2 x") or bullet count as a new item
+          const isNewItem = /^(\d+)\s*x\s+/i.test(trimmed) || /^[•\-\*]\s*(\d+)?/i.test(trimmed);
+          if (!isNewItem && mergedLines.length > 0) {
+            // Append continuation description line (e.g. "(3 Pcs Kukus Mentai + ...)") to the preceding item
+            mergedLines[mergedLines.length - 1] += ' ' + trimmed;
+          } else {
+            mergedLines.push(trimmed);
           }
-          return {
-            id: `item-${lIdx}`,
-            nama: lineNama,
-            qty: lineQty,
-            harga: 0,
-            subtotal: 0
-          };
+        }
+
+        const hadSplitFragments = rawItems && rawItems.some(it => {
+          const t = (it.nama || '').trim();
+          return t.startsWith('(') && t.includes('Pcs') && !t.match(/^\d+\s*x/i);
         });
+
+        if (!rawItems || rawItems.length === 0 || hadSplitFragments) {
+          rawItems = mergedLines.map((l, lIdx) => {
+            let lineQty = 1;
+            let lineNama = l.trim();
+            const qMatch = lineNama.match(/^(\d+)\s*x\s+(.+)$/i);
+            if (qMatch) {
+              lineQty = parseInt(qMatch[1], 10) || 1;
+              lineNama = qMatch[2].trim();
+            }
+            let lineHarga = 0;
+            const pMatch = lineNama.match(/\(?Rp\.?\s*([0-9.,]+)\)?/i);
+            if (pMatch) {
+              lineHarga = parseInt(pMatch[1].replace(/[^0-9]/g, ''), 10) || 0;
+              lineNama = lineNama.replace(/\(?Rp\.?\s*[0-9.,]+\)?/gi, '').trim();
+            }
+            return {
+              id: `item-${lIdx}`,
+              nama: lineNama,
+              qty: lineQty,
+              harga: lineHarga,
+              subtotal: lineHarga * lineQty,
+            };
+          });
+        }
       }
 
       const updatedItems = (rawItems || []).map((it) => {
@@ -360,13 +388,17 @@ export default function App() {
         itNama = itNama.replace(/^[•\-\*\.]\s*/, '').replace(/\s+/g, ' ').trim();
 
         // Match with currentMenu
-        const match = currentMenu.find(
-          (m) =>
-            m.nama.toLowerCase().trim() === itNama.toLowerCase().trim() ||
-            m.nama.toLowerCase().replace(/[^a-z0-9]/g, '') === itNama.toLowerCase().replace(/[^a-z0-9]/g, '') ||
-            itNama.toLowerCase().includes(m.nama.toLowerCase()) ||
-            m.nama.toLowerCase().includes(itNama.toLowerCase())
-        );
+        const cleanCompare = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetClean = cleanCompare(itNama);
+
+        const match = currentMenu.find((m) => {
+          const mClean = cleanCompare(m.nama);
+          return (
+            mClean === targetClean ||
+            (targetClean.length > 8 && mClean.startsWith(targetClean)) ||
+            (targetClean.length > 8 && targetClean.startsWith(mClean))
+          );
+        });
 
         if (match) {
           itNama = match.nama;
@@ -392,6 +424,34 @@ export default function App() {
         };
       });
 
+      // DEDUPLICATION: Detect ghost twin duplicates from split description lines
+      const deduplicatedItems: typeof updatedItems = [];
+      const seenItems = new Map<string, number>();
+
+      for (const it of updatedItems) {
+        const normName = it.nama.trim().toLowerCase();
+        // Skip orphaned parentheses line e.g. "(3 Pcs Kukus Mentai ...)"
+        if (normName.startsWith('(') && normName.endsWith(')')) {
+          continue;
+        }
+
+        if (seenItems.has(normName)) {
+          const existingIdx = seenItems.get(normName)!;
+          const currentSum = deduplicatedItems.reduce((acc, curr) => acc + curr.subtotal, 0);
+          // If adding another copy exceeds totalHarga, it's definitely a ghost duplicate caused by newline split!
+          if (order.totalHarga > 0 && (currentSum + it.subtotal > order.totalHarga)) {
+            continue; // Skip the ghost twin!
+          }
+          deduplicatedItems[existingIdx].qty += it.qty;
+          deduplicatedItems[existingIdx].subtotal += it.subtotal;
+        } else {
+          seenItems.set(normName, deduplicatedItems.length);
+          deduplicatedItems.push({ ...it });
+        }
+      }
+
+      const finalItems = deduplicatedItems.length > 0 ? deduplicatedItems : updatedItems;
+
       // Sanitize corrupted alamat that was mistakenly filled with menu items
       let cleanAlamat = order.alamat || '';
       if (
@@ -412,7 +472,7 @@ export default function App() {
       }
 
       // Ensure ongkir is accurately set by calculating difference between totalHarga and itemsSubtotal
-      const itemsSubtotal = updatedItems.reduce((sum, it) => sum + (it.subtotal || (it.harga * it.qty)), 0);
+      const itemsSubtotal = finalItems.reduce((sum, it) => sum + (it.subtotal || (it.harga * it.qty)), 0);
       let cleanOngkir = Number(order.ongkir) || 0;
       if (order.totalHarga > itemsSubtotal && itemsSubtotal > 0) {
         cleanOngkir = Math.max(cleanOngkir, order.totalHarga - itemsSubtotal);
@@ -425,7 +485,7 @@ export default function App() {
         ...order,
         opsiPengiriman: cleanOpsi,
         alamat: cleanAlamat,
-        items: updatedItems,
+        items: finalItems,
         ongkir: cleanOngkir,
       };
     });
@@ -910,7 +970,7 @@ export default function App() {
         };
       });
 
-      const rincianText = orderItems.map(it => `${it.qty}x ${it.nama} (${formatRupiah(it.subtotal)})`).join('\n');
+      const rincianText = orderItems.map(it => `${it.qty}x ${it.nama.replace(/\r?\n/g, ' ')} (${formatRupiah(it.subtotal)})`).join('\n');
 
       const now = new Date();
       const pad = (n: number) => n.toString().padStart(2, '0');

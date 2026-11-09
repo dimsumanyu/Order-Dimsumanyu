@@ -116,7 +116,7 @@ export const BatchThermalReceiptModal: React.FC<BatchThermalReceiptModalProps> =
     lines.push(divider);
     lines.push('ITEM PESANAN:');
 
-    const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '☐ ' : '';
+    const marker = markerStyle === 'bullet' ? '* ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '[ ] ' : '';
 
     if (order.items && order.items.length > 0) {
       order.items.forEach((it) => {
@@ -236,7 +236,7 @@ export const BatchThermalReceiptModal: React.FC<BatchThermalReceiptModalProps> =
           lines.push('--------------------------------');
           lines.push('RINCIAN PESANAN:');
 
-          const marker = markerStyle === 'bullet' ? '• ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '☐ ' : '';
+          const marker = markerStyle === 'bullet' ? '* ' : markerStyle === 'dash' ? '- ' : markerStyle === 'box' ? '[ ] ' : '';
 
           if (order.items && order.items.length > 0) {
             order.items.forEach((it) => {
@@ -255,6 +255,23 @@ export const BatchThermalReceiptModal: React.FC<BatchThermalReceiptModalProps> =
           }
 
           lines.push('--------------------------------');
+          const rawItemsSubtotalEsc = order.items && order.items.length > 0
+            ? order.items.reduce((sum, it) => sum + getItemPricing(it).subtotal, 0)
+            : order.totalHarga;
+
+          let ongkirValNumEsc = Number(order.ongkir) || 0;
+          if (ongkirValNumEsc === 0 && order.totalHarga > rawItemsSubtotalEsc && rawItemsSubtotalEsc > 0) {
+            ongkirValNumEsc = Math.max(0, order.totalHarga - rawItemsSubtotalEsc);
+          }
+          const hasOngkirEsc = ongkirValNumEsc > 0 || (order.totalHarga > rawItemsSubtotalEsc && rawItemsSubtotalEsc > 0);
+          const displaySubtotalEsc = hasOngkirEsc ? (order.totalHarga - ongkirValNumEsc) : rawItemsSubtotalEsc;
+
+          if (hasOngkirEsc) {
+            lines.push(`SUBTOTAL: ${formatRupiah(displaySubtotalEsc)}`);
+            lines.push(`ONGKIR: ${formatRupiah(ongkirValNumEsc)}`);
+            lines.push('--------------------------------');
+          }
+
           lines.push('CMD_BOLD_ON');
           lines.push(`TOTAL: ${formatRupiah(order.totalHarga)}`);
           lines.push('CMD_BOLD_OFF');
