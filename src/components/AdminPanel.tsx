@@ -27,7 +27,9 @@ import {
   FileText,
   Calendar,
   Layers,
-  Smartphone
+  Smartphone,
+  Edit3,
+  CheckSquare
 } from 'lucide-react';
 import { OrderData, MenuItem, AppSettings, OrderStatus } from '../types';
 import { formatRupiah, createWhatsAppUrl } from '../utils/whatsapp';
@@ -37,17 +39,56 @@ import { PrinterSetupModal } from './PrinterSetupModal';
 import { MenuEditorModal } from './MenuEditorModal';
 import { OrderSummaryModal } from './OrderSummaryModal';
 import { BatchThermalReceiptModal } from './BatchThermalReceiptModal';
+import { EditOrderModal } from './EditOrderModal';
 import { ErrorBoundary } from './ErrorBoundary';
 
-function parseDateSafe(val: any): Date | null {
-  if (!val) return null;
+function parseDateSafe(val: any, fallbackId?: string): Date | null {
+  if (!val && !fallbackId) return null;
   if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
   if (typeof val === 'string') {
-    const cleaned = val.trim().replace(' ', 'T');
+    const trimmed = val.trim();
+    // 1. Indonesian DD/MM/YYYY or DD-MM-YYYY format
+    const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[,\s]+(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?)?/);
+    if (dmyMatch) {
+      const day = parseInt(dmyMatch[1], 10);
+      const month = parseInt(dmyMatch[2], 10) - 1;
+      const year = parseInt(dmyMatch[3], 10);
+      const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+      const minutes = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+      const seconds = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+      const parsed = new Date(year, month, day, hours, minutes, seconds);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    // 2. Standard ISO string
+    const cleaned = trimmed.replace(' ', 'T');
     const d = new Date(cleaned);
     if (!isNaN(d.getTime())) return d;
     const d2 = new Date(val);
     if (!isNaN(d2.getTime())) return d2;
+  }
+  // 3. Fallback to order ID if format DAN-YYYYMMDD-HHMMSS
+  if (fallbackId && typeof fallbackId === 'string') {
+    const idMatch = fallbackId.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+    if (idMatch) {
+      const parsed = new Date(
+        parseInt(idMatch[1], 10),
+        parseInt(idMatch[2], 10) - 1,
+        parseInt(idMatch[3], 10),
+        parseInt(idMatch[4], 10),
+        parseInt(idMatch[5], 10),
+        parseInt(idMatch[6], 10)
+      );
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    const idDayMatch = fallbackId.match(/(\d{4})(\d{2})(\d{2})/);
+    if (idDayMatch) {
+      const parsed = new Date(
+        parseInt(idDayMatch[1], 10),
+        parseInt(idDayMatch[2], 10) - 1,
+        parseInt(idDayMatch[3], 10)
+      );
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
   }
   return null;
 }
@@ -71,6 +112,8 @@ interface AdminPanelProps {
   onLogout: () => void;
   onViewStore?: () => void;
   onMarkAsPrinted: (id: string) => Promise<void>;
+  onUpdateOrder?: (updatedOrder: OrderData) => Promise<void>;
+  onBatchUpdateStatus?: (ids: string[], newStatus: OrderStatus) => Promise<void>;
   isSyncing: boolean;
   onRefreshOrders?: () => Promise<void>;
   isRefreshing?: boolean;
@@ -95,6 +138,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSettings,
   onDeleteOrder,
   onDeleteMultipleOrders,
+  onUpdateOrder,
+  onBatchUpdateStatus,
   onOpenSheetsGuide,
   onLogout,
   onViewStore,
@@ -130,20 +175,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
 
-  // Date Filter State
-  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'CUSTOM'>(() => {
-    try {
-      const saved = localStorage.getItem('dimsumanyu_admin_date_filter');
-      if (saved && ['ALL', 'TODAY', 'YESTERDAY', 'LAST_7_DAYS', 'THIS_MONTH', 'CUSTOM'].includes(saved)) {
-        return saved as any;
-      }
-      return 'ALL';
-    } catch {
-      return 'ALL';
-    }
-  });
+  // Date Filter State: Default to 'TODAY' (Pesanan Hari Ini) as requested by user
+  const [dateFilter, setDateFilter] = useState<'TODAY' | 'ALL' | 'YESTERDAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'CUSTOM'>('TODAY');
 
-  // Synchronize dateFilter with localStorage
+  // Synchronize dateFilter with localStorage for session persistence
   useEffect(() => {
     try {
       localStorage.setItem('dimsumanyu_admin_date_filter', dateFilter);
@@ -164,6 +199,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   });
 
+  // Human-readable active filter label used for OrderSummaryModal sync
+  const activeFilterLabel = React.useMemo(() => {
+    const parts: string[] = [];
+    if (dateFilter === 'TODAY') parts.push('Hari Ini');
+    else if (dateFilter === 'ALL') parts.push('Semua Tanggal');
+    else if (dateFilter === 'YESTERDAY') parts.push('Kemarin');
+    else if (dateFilter === 'LAST_7_DAYS') parts.push('7 Hari Terakhir');
+    else if (dateFilter === 'THIS_MONTH') parts.push('Bulan Ini');
+    else if (dateFilter === 'CUSTOM') parts.push(`${customStartDate} s/d ${customEndDate}`);
+
+    if (statusFilter !== 'ALL') parts.push(`Status: ${statusFilter}`);
+    if (searchQuery.trim()) parts.push(`Cari: "${searchQuery.trim()}"`);
+
+    return parts.join(' • ');
+  }, [dateFilter, customStartDate, customEndDate, statusFilter, searchQuery]);
+
   // Summary Seluruh Pesanan Modal State
   const [showOrderSummaryModal, setShowOrderSummaryModal] = useState<boolean>(false);
 
@@ -174,10 +225,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Menu Editor Modal State (Tambah, Kurangi/Hapus, Best Seller, Stok)
   const [showMenuEditorModal, setShowMenuEditorModal] = useState<boolean>(false);
 
-  // Multi-Select Orders State (Bulk Delete & Bulk Print)
+  // Multi-Select Orders State (Bulk Delete & Bulk Print & Bulk Status)
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
+  const [isBatchUpdatingStatus, setIsBatchUpdatingStatus] = useState<boolean>(false);
+
+  // Edit Order Modal State
+  const [orderToEdit, setOrderToEdit] = useState<OrderData | null>(null);
 
   // Thermal Receipt Modal State (58mm printer single)
   const [orderForReceipt, setOrderForReceipt] = useState<OrderData | null>(null);
@@ -219,8 +274,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     .filter(o => {
       if (!o) return false;
       if (o.status === 'Dibatalkan') return false;
-      if (!o.createdAt) return false;
-      const d = parseDateSafe(o.createdAt);
+      const d = parseDateSafe(o.createdAt, o.id);
       if (!d || isNaN(d.getTime())) return false;
       return (
         d.getDate() === today.getDate() &&
@@ -244,7 +298,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     let matchesDate = true;
     if (dateFilter !== 'ALL') {
-      const d = parseDateSafe(order.createdAt);
+      const d = parseDateSafe(order.createdAt, order.id);
       if (!d) {
         matchesDate = true;
       } else {
@@ -260,9 +314,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
         if (dateFilter === 'TODAY') {
-          matchesDate = d >= startOfToday;
+          matchesDate = (
+            d.getFullYear() === now.getFullYear() &&
+            d.getMonth() === now.getMonth() &&
+            d.getDate() === now.getDate()
+          );
         } else if (dateFilter === 'YESTERDAY') {
-          matchesDate = d >= startOfYesterday && d <= endOfYesterday;
+          matchesDate = (
+            d.getFullYear() === startOfYesterday.getFullYear() &&
+            d.getMonth() === startOfYesterday.getMonth() &&
+            d.getDate() === startOfYesterday.getDate()
+          );
         } else if (dateFilter === 'LAST_7_DAYS') {
           matchesDate = d >= sevenDaysAgo;
         } else if (dateFilter === 'THIS_MONTH') {
@@ -349,6 +411,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setTimeout(() => setActionNotice(null), 3500);
     } finally {
       setIsBulkDeleting(false);
+    }
+  };
+
+  // Bulk Status Update Handler (Ubah Status Bersamaan untuk Banyak Pesanan)
+  const handleBatchUpdateStatus = async (newStatus: OrderStatus) => {
+    if (selectedOrderIds.length === 0) return;
+    setIsBatchUpdatingStatus(true);
+    const count = selectedOrderIds.length;
+    try {
+      if (onBatchUpdateStatus) {
+        await onBatchUpdateStatus(selectedOrderIds, newStatus);
+      } else {
+        for (const id of selectedOrderIds) {
+          await onUpdateStatus(id, newStatus);
+        }
+      }
+      setSelectedOrderIds([]);
+      setActionNotice(`✅ Berhasil mengubah status ${count} transaksi sekaligus ke "${newStatus}".`);
+      setTimeout(() => setActionNotice(null), 4000);
+    } catch (err: any) {
+      setActionNotice(`❌ Gagal mengubah status massal: ${err.message || 'Error'}`);
+      setTimeout(() => setActionNotice(null), 4000);
+    } finally {
+      setIsBatchUpdatingStatus(false);
     }
   };
 
@@ -658,7 +744,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Kelola Pesanan ({orders.length})</span>
+            <span>Kelola Pesanan ({filteredOrders.length}{dateFilter !== 'ALL' ? ` • ${dateFilter === 'TODAY' ? 'Hari Ini' : 'Filter'}` : ''})</span>
           </button>
 
           <button
@@ -867,7 +953,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ))}
             </div>
 
-            {/* 📅 FILTER TANGGAL PESANAN */}
+            {/* 📅 FILTER TANGGAL PESANAN: HARI INI SEBAGAI PILIHAN UTAMA */}
             <div className="pt-2 border-t border-stone-100 space-y-2">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
@@ -876,8 +962,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <span>Filter Tanggal:</span>
                   </span>
                   {[
-                    { id: 'ALL', label: 'Semua Tanggal' },
                     { id: 'TODAY', label: 'Hari Ini' },
+                    { id: 'ALL', label: 'Semua Tanggal' },
                     { id: 'YESTERDAY', label: 'Kemarin' },
                     { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
                     { id: 'THIS_MONTH', label: 'Bulan Ini' },
@@ -898,16 +984,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   ))}
                 </div>
 
-                {/* Tombol Cepat Buka Rekap Summary */}
+                {/* Tombol Cepat Buka Rekap Summary (Otomatis Mengikuti Filter Aktif) */}
                 <button
                   type="button"
                   onClick={() => setShowOrderSummaryModal(true)}
                   className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
-                  title="Lihat rekap seluruh pesanan: nama, pesanan, dan total jumlah pesanan"
+                  title="Lihat rekap seluruh pesanan otomatis mengikuti filter: nama, pesanan, dan total jumlah pesanan"
                 >
                   <FileText className="w-3.5 h-3.5 text-emerald-700" />
                   <span>Rekap ({filteredOrders.length}) Pesanan</span>
                 </button>
+              </div>
+
+              {/* Filter Status Badge */}
+              <div className="flex items-center justify-between text-[11px] text-stone-600 bg-stone-50 border border-stone-200/80 rounded-xl px-3 py-1.5 flex-wrap gap-2">
+                <span className="flex items-center gap-1.5 font-bold">
+                  <Calendar className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                  <span>Filter Aktif:</span>
+                  <span className="text-red-700 font-extrabold bg-red-100/80 px-2 py-0.5 rounded-md">
+                    {dateFilter === 'TODAY'
+                      ? 'Hari Ini'
+                      : dateFilter === 'ALL'
+                      ? 'Semua Tanggal'
+                      : dateFilter === 'YESTERDAY'
+                      ? 'Kemarin'
+                      : dateFilter === 'LAST_7_DAYS'
+                      ? '7 Hari Terakhir'
+                      : dateFilter === 'THIS_MONTH'
+                      ? 'Bulan Ini'
+                      : `${customStartDate} s/d ${customEndDate}`}
+                  </span>
+                  {statusFilter !== 'ALL' && (
+                    <span className="text-stone-700 font-extrabold bg-stone-200 px-2 py-0.5 rounded-md">
+                      Status: {statusFilter}
+                    </span>
+                  )}
+                  <span>({filteredOrders.length} transaksi)</span>
+                </span>
+
+                {dateFilter === 'TODAY' ? (
+                  <span className="text-[10.5px] text-stone-400">
+                    Halaman awal memuat pesanan hari ini. Klik "Semua Tanggal" atau "Kemarin" jika perlu mengecek riwayat.
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDateFilter('TODAY')}
+                    className="text-[11px] text-red-600 font-extrabold hover:underline cursor-pointer"
+                  >
+                    ↺ Kembali ke Pesanan Hari Ini
+                  </button>
+                )}
               </div>
 
               {dateFilter === 'CUSTOM' && (
@@ -993,6 +1120,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {selectedOrderIds.length > 0 && (
                   <>
+                    {/* ⚡ BATCH STATUS UPDATE DROPDOWN */}
+                    <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-300 rounded-xl px-2.5 py-1 text-xs shadow-xs">
+                      <CheckSquare className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span className="font-extrabold text-amber-950 text-[11px] whitespace-nowrap">
+                        Ubah Status ({selectedOrderIds.length}):
+                      </span>
+                      <select
+                        disabled={isBatchUpdatingStatus}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleBatchUpdateStatus(e.target.value as OrderStatus);
+                            e.target.value = '';
+                          }
+                        }}
+                        defaultValue=""
+                        className="bg-white text-stone-900 font-black text-xs px-2 py-0.5 rounded-lg border border-amber-300 outline-none cursor-pointer hover:border-amber-500 transition disabled:opacity-50"
+                      >
+                        <option value="" disabled>Pilih Status Baru...</option>
+                        <option value="Menunggu payment">Menunggu payment</option>
+                        <option value="Pesanan sedang dimasak">Pesanan sedang dimasak</option>
+                        <option value="Pesanan siap">Pesanan siap</option>
+                        <option value="Pesanan selesai">Pesanan selesai</option>
+                        <option value="Dibatalkan">Dibatalkan</option>
+                      </select>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => setShowBulkDeleteModal(true)}
@@ -1018,8 +1171,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {/* Orders List */}
           {filteredOrders.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center text-stone-400 text-xs">
-              Belum ada pesanan yang sesuai dengan filter.
+            <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center text-stone-500 text-xs space-y-3">
+              <div className="w-12 h-12 rounded-full bg-stone-100 text-stone-400 flex items-center justify-center mx-auto text-xl">
+                ☕
+              </div>
+              <div>
+                <p className="font-extrabold text-stone-800 text-sm">
+                  {dateFilter === 'TODAY'
+                    ? 'Belum ada pesanan masuk untuk Hari Ini'
+                    : 'Tidak ada pesanan yang sesuai dengan filter'}
+                </p>
+                <p className="text-stone-400 text-[11px] mt-1 max-w-md mx-auto">
+                  {dateFilter === 'TODAY'
+                    ? 'Pesanan baru hari ini akan muncul di sini secara otomatis. Jika ingin melihat pesanan sebelumnya, Anda dapat memilih "Semua Tanggal" atau "Kemarin".'
+                    : 'Coba sesuaikan kata kunci pencarian, filter status, atau filter tanggal.'}
+                </p>
+              </div>
+              {dateFilter === 'TODAY' && orders.length > 0 && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setDateFilter('ALL')}
+                    className="inline-flex items-center gap-1.5 bg-stone-900 hover:bg-stone-800 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Lihat Semua Tanggal ({orders.length} Pesanan)</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -1101,6 +1280,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             </button>
                           </div>
                         )}
+
+                        {/* ✏️ EDIT PESANAN */}
+                        <button
+                          type="button"
+                          onClick={() => setOrderToEdit(order)}
+                          className="text-stone-700 hover:text-amber-800 bg-stone-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg border border-stone-200 hover:border-amber-300 text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1 shrink-0"
+                          title={`Edit menu & data pesanan #${order.id}`}
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Edit</span>
+                        </button>
 
                         <button
                           type="button"
@@ -1211,6 +1401,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           </div>
 
                           <div className="flex flex-wrap items-center gap-1.5 justify-end pt-0.5">
+                            {/* ✏️ TOMBOL EDIT PESANAN */}
+                            <button
+                              type="button"
+                              onClick={() => setOrderToEdit(order)}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-800 bg-stone-100 hover:bg-stone-200 active:scale-95 border border-stone-300 px-3 py-1.5 rounded-xl transition shadow-2xs cursor-pointer"
+                              title="Edit menu pesanan, tambah/kurang item, atau ubah info pelanggan"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Edit Pesanan</span>
+                            </button>
+
                             {/* 🖨️ TOMBOL CETAK RESI 58MM */}
                             <button
                               type="button"
@@ -1823,26 +2024,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         }
       />
 
-      {/* 📋 MODAL SUMMARY / REKAP SELURUH PESANAN DENGAN FILTER TANGGAL */}
+      {/* 📋 MODAL SUMMARY / REKAP SELURUH PESANAN OTOMATIS MENGIKUTI FILTER KELOLA PESANAN */}
       <OrderSummaryModal
         isOpen={showOrderSummaryModal}
         onClose={() => setShowOrderSummaryModal(false)}
         orders={orders}
+        filteredOrders={filteredOrders}
+        filterLabel={activeFilterLabel}
         menuItems={menuItems}
         settings={settings}
-        initialPeriod={
-          dateFilter === 'TODAY'
-            ? 'today'
-            : dateFilter === 'YESTERDAY'
-            ? 'yesterday'
-            : dateFilter === 'LAST_7_DAYS'
-            ? 'week'
-            : dateFilter === 'THIS_MONTH'
-            ? 'month'
-            : dateFilter === 'CUSTOM'
-            ? 'custom'
-            : 'all'
-        }
       />
 
       {/* 📊 MODAL DASHBOARD LAPORAN KEUANGAN & BEST SELLER */}
@@ -1863,6 +2053,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         isOpen={showPrinterSetupModal}
         onClose={() => setShowPrinterSetupModal(false)}
       />
+
+      {/* ✏️ MODAL EDIT PESANAN PELANGGAN */}
+      {orderToEdit && (
+        <EditOrderModal
+          isOpen={Boolean(orderToEdit)}
+          order={orderToEdit}
+          menuItems={menuItems}
+          onClose={() => setOrderToEdit(null)}
+          onSaveOrder={async (updatedOrder) => {
+            if (onUpdateOrder) {
+              await onUpdateOrder(updatedOrder);
+            }
+            setOrderToEdit(null);
+            setActionNotice(`✅ Pesanan #${updatedOrder.id} berhasil diperbarui!`);
+            setTimeout(() => setActionNotice(null), 3500);
+          }}
+        />
+      )}
 
       {/* 🍽️ MODAL EDIT MENU (Tambah, Kurangi/Hapus, Best Seller, Stok) */}
       {showMenuEditorModal && (

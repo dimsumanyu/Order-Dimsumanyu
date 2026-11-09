@@ -445,6 +445,42 @@ async function startServer() {
     res.json({ success: true, order });
   });
 
+  // Update complete order details (Edit items, quantities, customer details, ongkir)
+  app.put('/api/orders/:id', (req, res) => {
+    const { id } = req.params;
+    const index = orders.findIndex(o => o.id === id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: 'Pesanan tidak ditemukan' });
+    }
+    const updatedData = req.body;
+    orders[index] = {
+      ...orders[index],
+      ...updatedData,
+      id: orders[index].id, // Preserve ID
+    };
+    saveJSON(ORDERS_FILE, orders);
+    res.json({ success: true, order: orders[index] });
+  });
+
+  // Batch update status for multiple orders
+  app.patch('/api/orders/batch/status', (req, res) => {
+    const { ids, status } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0 || !status) {
+      return res.status(400).json({ success: false, error: 'Parameter ids dan status diperlukan' });
+    }
+    const idSet = new Set(ids);
+    let updatedCount = 0;
+    orders = orders.map(o => {
+      if (idSet.has(o.id)) {
+        updatedCount++;
+        return { ...o, status };
+      }
+      return o;
+    });
+    saveJSON(ORDERS_FILE, orders);
+    res.json({ success: true, updatedCount, status });
+  });
+
   app.patch('/api/orders/:id/print', (req, res) => {
     const { id } = req.params;
     const order = orders.find(o => o.id === id);

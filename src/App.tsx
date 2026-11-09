@@ -1092,6 +1092,86 @@ export default function App() {
     }
   };
 
+  const handleUpdateOrder = async (updatedOrder: OrderData) => {
+    try {
+      // 1. Update local state
+      setOrders(prev => {
+        const next = prev.map(o => (o.id === updatedOrder.id ? updatedOrder : o));
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      // 2. Update tracking modal if active
+      if (selectedOrderForTracking && selectedOrderForTracking.id === updatedOrder.id) {
+        setSelectedOrderForTracking(updatedOrder);
+      }
+
+      // 3. Update backend server
+      try {
+        await fetch(`/api/orders/${encodeURIComponent(updatedOrder.id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedOrder),
+        });
+      } catch {}
+
+      // 4. Update Google Sheets
+      if (settings.appsScriptUrl) {
+        sendDirectToAppsScript(updatedOrder);
+      }
+    } catch (err: any) {
+      alert('Gagal memperbarui pesanan: ' + err.message);
+    }
+  };
+
+  const handleBatchUpdateStatus = async (ids: string[], newStatus: OrderStatus) => {
+    const idSet = new Set(ids);
+    const updatedList: OrderData[] = [];
+    try {
+      // 1. Update local state
+      setOrders(prev => {
+        const next = prev.map(o => {
+          if (idSet.has(o.id)) {
+            const mod = { ...o, status: newStatus };
+            updatedList.push(mod);
+            return mod;
+          }
+          return o;
+        });
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      // 2. Update tracking if active
+      if (selectedOrderForTracking && idSet.has(selectedOrderForTracking.id)) {
+        setSelectedOrderForTracking(prev => (prev ? { ...prev, status: newStatus } : null));
+      }
+
+      // 3. Update backend server in batch
+      try {
+        await fetch('/api/orders/batch/status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids, status: newStatus }),
+        });
+      } catch {}
+
+      // 4. Update Google Sheets in background
+      if (settings.appsScriptUrl) {
+        for (const ord of updatedList) {
+          const updateUrl = `${settings.appsScriptUrl}?action=updateStatus&id=${encodeURIComponent(ord.id)}&status=${encodeURIComponent(newStatus)}&_t=${Date.now()}`;
+          fetch(updateUrl, { redirect: 'follow' }).catch(() => {});
+        }
+      }
+    } catch (err: any) {
+      alert('Gagal mengubah status massal: ' + err.message);
+    }
+  };
+
   const handleSyncOrder = async (id: string) => {
     const order = orders.find(o => o.id === id);
     if (!order) return;
@@ -1567,6 +1647,8 @@ export default function App() {
               onLogout={handleAdminLogout}
               onViewStore={() => setActiveView('order')}
               onMarkAsPrinted={handleMarkOrderAsPrinted}
+              onUpdateOrder={handleUpdateOrder}
+              onBatchUpdateStatus={handleBatchUpdateStatus}
               isSyncing={isSyncing}
               onRefreshOrders={handleManualRefreshOrders}
               isRefreshing={isRefreshingOrders}

@@ -20,25 +20,66 @@ import { OrderData, MenuItem, AppSettings } from '../types';
 import { formatRupiah } from '../utils/whatsapp';
 
 export type SummaryDatePeriod = 'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom';
+export type SummaryPeriodSelection = 'current_filter' | 'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom';
 
-interface OrderSummaryModalProps {
+export interface OrderSummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
   orders: OrderData[];
+  filteredOrders?: OrderData[];
   menuItems?: MenuItem[];
   settings?: AppSettings;
   initialPeriod?: SummaryDatePeriod;
+  filterLabel?: string;
 }
 
-function parseDate(val: any): Date | null {
-  if (!val) return null;
+function parseDate(val: any, fallbackId?: string): Date | null {
+  if (!val && !fallbackId) return null;
   if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
   if (typeof val === 'string') {
-    const cleaned = val.trim().replace(' ', 'T');
+    const trimmed = val.trim();
+    // 1. Indonesian DD/MM/YYYY or DD-MM-YYYY format
+    const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[,\s]+(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?)?/);
+    if (dmyMatch) {
+      const day = parseInt(dmyMatch[1], 10);
+      const month = parseInt(dmyMatch[2], 10) - 1;
+      const year = parseInt(dmyMatch[3], 10);
+      const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+      const minutes = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+      const seconds = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+      const parsed = new Date(year, month, day, hours, minutes, seconds);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    // 2. Standard ISO string
+    const cleaned = trimmed.replace(' ', 'T');
     const d = new Date(cleaned);
     if (!isNaN(d.getTime())) return d;
     const d2 = new Date(val);
     if (!isNaN(d2.getTime())) return d2;
+  }
+  // 3. Fallback to order ID if format DAN-YYYYMMDD-HHMMSS
+  if (fallbackId && typeof fallbackId === 'string') {
+    const idMatch = fallbackId.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+    if (idMatch) {
+      const parsed = new Date(
+        parseInt(idMatch[1], 10),
+        parseInt(idMatch[2], 10) - 1,
+        parseInt(idMatch[3], 10),
+        parseInt(idMatch[4], 10),
+        parseInt(idMatch[5], 10),
+        parseInt(idMatch[6], 10)
+      );
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    const idDayMatch = fallbackId.match(/(\d{4})(\d{2})(\d{2})/);
+    if (idDayMatch) {
+      const parsed = new Date(
+        parseInt(idDayMatch[1], 10),
+        parseInt(idDayMatch[2], 10) - 1,
+        parseInt(idDayMatch[3], 10)
+      );
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
   }
   return null;
 }
@@ -149,13 +190,28 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
   isOpen,
   onClose,
   orders = [],
+  filteredOrders: filteredOrdersProp,
   menuItems = [],
   settings,
   initialPeriod = 'today',
+  filterLabel,
 }) => {
-  const [period, setPeriod] = useState<SummaryDatePeriod>(initialPeriod);
+  const [period, setPeriod] = useState<SummaryPeriodSelection>(() => {
+    return filteredOrdersProp ? 'current_filter' : initialPeriod;
+  });
   const [excludeCancelled, setExcludeCancelled] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Auto-sync with Kelola Pesanan filter whenever modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      if (filteredOrdersProp) {
+        setPeriod('current_filter');
+      } else {
+        setPeriod(initialPeriod);
+      }
+    }
+  }, [isOpen, filteredOrdersProp, initialPeriod]);
 
   // Custom date range state (YYYY-MM-DD)
   const todayStr = useMemo(() => {
@@ -175,6 +231,12 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
 
   // Filter orders according to date and cancellation status
   const filteredOrders = useMemo(() => {
+    // If set to 'current_filter', directly use the filteredOrders from Kelola Pesanan!
+    if (period === 'current_filter' && filteredOrdersProp) {
+      if (!excludeCancelled) return filteredOrdersProp.filter(Boolean);
+      return filteredOrdersProp.filter((o) => o && o.status !== 'Dibatalkan');
+    }
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -192,7 +254,7 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
         return false;
       }
 
-      const orderDate = parseDate(order.createdAt);
+      const orderDate = parseDate(order.createdAt, order.id);
       if (!orderDate) return true; // fallback keep
 
       if (period === 'today') {
@@ -228,7 +290,7 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
 
       return true; // 'all'
     });
-  }, [safeOrders, period, excludeCancelled, customStartDate, customEndDate]);
+  }, [safeOrders, filteredOrdersProp, period, excludeCancelled, customStartDate, customEndDate]);
 
   // Calculations: Total omset, total porsi, rekap menu (Akumulasi pesanan identik)
   const summaryMetrics = useMemo(() => {
@@ -267,13 +329,14 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
   }, [filteredOrders, menuItems]);
 
   const periodLabel = useMemo(() => {
+    if (period === 'current_filter') return `Sesuai Kelola Pesanan (${filterLabel || 'Filter Aktif'})`;
     if (period === 'today') return 'Hari Ini';
     if (period === 'yesterday') return 'Kemarin';
     if (period === 'week') return '7 Hari Terakhir';
     if (period === 'month') return 'Bulan Ini';
     if (period === 'custom') return `${customStartDate} s/d ${customEndDate}`;
     return 'Semua Periode';
-  }, [period, customStartDate, customEndDate]);
+  }, [period, filterLabel, customStartDate, customEndDate]);
 
   // Formatter for clipboard WhatsApp text
   const generateSummaryText = () => {
@@ -391,23 +454,46 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
 
         {/* Filter Controls (Hidden in Print) */}
         <div className="p-3 sm:p-4 bg-stone-50 border-b border-stone-200 space-y-3 shrink-0 print:hidden">
+          {/* Active Filter Synchronization Notice */}
+          {period === 'current_filter' && (
+            <div className="bg-emerald-50 border border-emerald-300 rounded-xl px-3 py-2 text-xs text-emerald-950 font-bold flex items-center justify-between gap-2 shadow-2xs">
+              <span className="flex items-center gap-1.5 flex-wrap">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span>
+                  Summary otomatis mengikuti filter Kelola Pesanan: <span className="text-emerald-700 underline underline-offset-2">{filterLabel || 'Filter Aktif'}</span> ({filteredOrders.length} Pesanan).
+                </span>
+              </span>
+              <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full font-black shrink-0">
+                Otomatis Sinkron
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-2.5">
             {/* Period Pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-bold text-stone-500 mr-1 flex items-center gap-1">
                 <Filter className="w-3.5 h-3.5 text-stone-400" />
-                <span>Filter Tanggal:</span>
+                <span>Filter:</span>
               </span>
 
               {(
                 [
-                  { id: 'today', label: 'Hari Ini' },
-                  { id: 'yesterday', label: 'Kemarin' },
-                  { id: 'week', label: '7 Hari Terakhir' },
-                  { id: 'month', label: 'Bulan Ini' },
-                  { id: 'all', label: 'Semua Waktu' },
-                  { id: 'custom', label: 'Pilih Tanggal' },
-                ] as { id: SummaryDatePeriod; label: string }[]
+                  ...(filteredOrdersProp
+                    ? [
+                        {
+                          id: 'current_filter' as SummaryPeriodSelection,
+                          label: `⚡ Sesuai Kelola Pesanan (${filterLabel || 'Filter Aktif'})`,
+                        },
+                      ]
+                    : []),
+                  { id: 'today' as SummaryPeriodSelection, label: 'Hari Ini' },
+                  { id: 'yesterday' as SummaryPeriodSelection, label: 'Kemarin' },
+                  { id: 'week' as SummaryPeriodSelection, label: '7 Hari Terakhir' },
+                  { id: 'month' as SummaryPeriodSelection, label: 'Bulan Ini' },
+                  { id: 'all' as SummaryPeriodSelection, label: 'Semua Waktu' },
+                  { id: 'custom' as SummaryPeriodSelection, label: 'Pilih Tanggal' },
+                ]
               ).map((item) => (
                 <button
                   key={item.id}
