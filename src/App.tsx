@@ -1594,6 +1594,7 @@ export default function App() {
                     onSearchChange={setSearchQuery}
                     showBestSellerOnly={showBestSellerOnly}
                     onToggleBestSeller={() => setShowBestSellerOnly(prev => !prev)}
+                    menuItems={menuItems}
                   />
 
                   {/* Menu Grid */}

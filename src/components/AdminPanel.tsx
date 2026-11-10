@@ -554,19 +554,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: Edit Menu, Lihat Toko & LOGOUT */}
+        {/* Action Buttons: Lihat Toko & LOGOUT */}
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100 flex-wrap">
-          {/* 🍽️ TOMBOL EDIT / KELOLA MENU */}
-          <button
-            type="button"
-            onClick={() => setShowMenuEditorModal(true)}
-            className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 active:scale-95 text-stone-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer border border-amber-600/30"
-            title="Edit Menu: Tambah Menu, Hapus Menu, Jadikan Best Seller, & Pengaturan Stok"
-          >
-            <UtensilsCrossed className="w-3.5 h-3.5 text-stone-950" />
-            <span>Edit / Kelola Menu</span>
-          </button>
-
           {onViewStore && (
             <button
               type="button"
@@ -604,57 +593,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
         </div>
       )}
-      {/* Overview Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+      {/* Overview Stat Cards: Total Pesanan & Omset Hari Ini */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
           <div>
             <p className="text-[10px] uppercase font-bold text-stone-400">Total Pesanan</p>
-            <p className="text-xl font-black text-stone-900 mt-0.5">{orders.length}</p>
+            <p className="text-2xl font-black text-stone-900 mt-0.5">{orders.length}</p>
           </div>
-          <p className="text-[10px] text-stone-500 mt-1 font-medium">Semua transaksi masuk</p>
+          <p className="text-[11px] text-stone-500 mt-1 font-medium">Semua transaksi masuk ke dalam sistem</p>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <p className="text-[10px] uppercase font-bold text-red-600">Omset Hari Ini</p>
-              <span className="text-[9px] font-black bg-red-100 text-red-700 px-1.5 py-0.2 rounded-full">
+              <span className="text-[9px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
                 Harian
               </span>
             </div>
-            <p className="text-base sm:text-lg font-black text-red-600 mt-1 truncate">
+            <p className="text-xl sm:text-2xl font-black text-red-600 mt-1 truncate">
               {formatRupiah(todayRevenue)}
             </p>
-            <p className="text-[10px] text-stone-500 font-medium mt-0.5">
-              Reset otomatis setiap hari baru
+            <p className="text-[11px] text-stone-500 font-medium mt-0.5">
+              Reset otomatis setiap pergantian hari
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => setShowFinanceModal(true)}
-            className="mt-2 w-full bg-stone-900 hover:bg-stone-800 active:scale-95 text-white font-black text-[10.5px] py-1.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+            className="mt-2.5 w-full bg-stone-900 hover:bg-stone-800 active:scale-95 text-white font-black text-[11px] py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
             title="Buka Dashboard Laporan Keuangan (Filter Hari, Minggu, Bulan, Best Seller)"
           >
             <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
             <span>Semua Laporan</span>
           </button>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
-          <div>
-            <p className="text-[10px] uppercase font-bold text-emerald-600">Tersinkron Sheets</p>
-            <p className="text-xl font-black text-emerald-700 mt-0.5">{syncedCount}</p>
-          </div>
-          <p className="text-[10px] text-emerald-700/80 mt-1 font-medium">Masuk ke Google Sheets</p>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
-          <div>
-            <p className="text-[10px] uppercase font-bold text-amber-600">Pending Sinkron</p>
-            <p className="text-xl font-black text-amber-700 mt-0.5">{unsyncedCount}</p>
-          </div>
-          <p className="text-[10px] text-amber-700/80 mt-1 font-medium">Belum tersinkronisasi</p>
         </div>
       </div>
 
@@ -692,45 +665,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
-
-      {/* Admin Direct Link Info Card */}
-      <div className="bg-gradient-to-r from-stone-900 to-stone-800 text-white rounded-2xl p-4 shadow-xs space-y-2 border border-stone-800">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                LINK RAHASIA PENGELOLA
-              </span>
-              <span className="text-[11px] text-emerald-400 font-bold">
-                ● Aktif &amp; Terproteksi Password
-              </span>
-            </div>
-            <h4 className="font-extrabold text-xs sm:text-sm text-white">
-              Tautan Khusus Admin untuk Mengontrol Status Pesanan
-            </h4>
-            <p className="text-[11px] text-stone-300">
-              Gunakan tautan ini untuk membuka halaman admin dari perangkat manapun. Link untuk pembeli tidak memiliki akses ke halaman ini.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <code className="bg-black/50 text-emerald-400 font-mono text-[11px] px-3 py-2 rounded-xl border border-white/10 select-all">
-              {typeof window !== 'undefined' ? `${window.location.origin}/?admin=true` : '?admin=true'}
-            </code>
-            <button
-              onClick={() => {
-                const adminUrl = `${window.location.origin}/?admin=true`;
-                navigator.clipboard.writeText(adminUrl);
-                alert('Tautan admin berhasil disalin:\n' + adminUrl);
-              }}
-              className="bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>Salin Link</span>
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Tab Switcher */}
       <div className="flex items-center justify-between border-b border-stone-200 pb-2 gap-2 overflow-x-auto no-scrollbar">
@@ -780,17 +714,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <FileText className="w-3.5 h-3.5 text-emerald-700" />
             <span>Summary Pesanan 📋</span>
-          </button>
-
-          {/* 📊 BUTTON BUKA LAPORAN KEUANGAN */}
-          <button
-            type="button"
-            onClick={() => setShowFinanceModal(true)}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 shadow-xs active:scale-95"
-            title="Buka Dashboard Laporan Keuangan, Filter Periode & Menu Best Seller"
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-red-600" />
-            <span>Laporan Keuangan 📊</span>
           </button>
 
           {/* 🖨️ BUTTON PENGATURAN PRINTER KASIR (ALA KASIR MINI) */}
@@ -955,45 +878,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {/* 📅 FILTER TANGGAL PESANAN: HARI INI SEBAGAI PILIHAN UTAMA */}
             <div className="pt-2 border-t border-stone-100 space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
-                  <span className="text-[11px] font-bold text-stone-500 mr-1 flex items-center gap-1 shrink-0">
-                    <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                    <span>Filter Tanggal:</span>
-                  </span>
-                  {[
-                    { id: 'TODAY', label: 'Hari Ini' },
-                    { id: 'ALL', label: 'Semua Tanggal' },
-                    { id: 'YESTERDAY', label: 'Kemarin' },
-                    { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
-                    { id: 'THIS_MONTH', label: 'Bulan Ini' },
-                    { id: 'CUSTOM', label: 'Pilih Tanggal' },
-                  ].map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => setDateFilter(d.id as any)}
-                      className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap transition cursor-pointer text-[11px] ${
-                        dateFilter === d.id
-                          ? 'bg-red-600 text-white shadow-xs'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tombol Cepat Buka Rekap Summary (Otomatis Mengikuti Filter Aktif) */}
-                <button
-                  type="button"
-                  onClick={() => setShowOrderSummaryModal(true)}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
-                  title="Lihat rekap seluruh pesanan otomatis mengikuti filter: nama, pesanan, dan total jumlah pesanan"
-                >
-                  <FileText className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Rekap ({filteredOrders.length}) Pesanan</span>
-                </button>
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
+                <span className="text-[11px] font-bold text-stone-500 mr-1 flex items-center gap-1 shrink-0">
+                  <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                  <span>Filter Tanggal:</span>
+                </span>
+                {[
+                  { id: 'TODAY', label: 'Hari Ini' },
+                  { id: 'ALL', label: 'Semua Tanggal' },
+                  { id: 'YESTERDAY', label: 'Kemarin' },
+                  { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
+                  { id: 'THIS_MONTH', label: 'Bulan Ini' },
+                  { id: 'CUSTOM', label: 'Pilih Tanggal' },
+                ].map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDateFilter(d.id as any)}
+                    className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap transition cursor-pointer text-[11px] ${
+                      dateFilter === d.id
+                        ? 'bg-red-600 text-white shadow-xs'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
               </div>
 
               {/* Filter Status Badge */}
