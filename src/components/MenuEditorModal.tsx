@@ -603,7 +603,25 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
                         setIsUploadingImage(true);
                         try {
                           const compressed = await compressImageFile(file, 600, 0.82);
-                          setFormImageUrl(compressed);
+                          // Unggah ke backend server agar menjadi URL file gambar publik yang ringan
+                          let uploadedUrl = compressed;
+                          try {
+                            const res = await fetch('/api/menu/upload-image', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                image: compressed,
+                                filename: formNama.trim().toLowerCase().replace(/[^a-z0-9]/g, '-') || 'dimsum'
+                              })
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              if (data && data.success && data.url) {
+                                uploadedUrl = data.url;
+                              }
+                            }
+                          } catch {}
+                          setFormImageUrl(uploadedUrl);
                         } catch (err) {
                           alert('Gagal memproses file foto.');
                         } finally {

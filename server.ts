@@ -11,14 +11,18 @@ const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
 const DATA_DIR = path.resolve(__dirname, 'data_store');
+const UPLOADS_DIR = path.resolve(__dirname, 'public', 'uploads');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const DELETED_ORDERS_FILE = path.join(DATA_DIR, 'deleted_orders.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const MENU_FILE = path.join(DATA_DIR, 'menu.json');
 
-// Ensure data directory exists
+// Ensure data directory & uploads directory exist
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
 // Load or initialize data
@@ -42,10 +46,18 @@ function saveJSON<T>(filePath: string, data: T) {
   }
 }
 
+const isValidOrder = (o: any): boolean => {
+  if (!o || typeof o !== 'object') return false;
+  const id = String(o.id || '').trim();
+  if (!id) return false;
+  if (id.startsWith('menu-') || id.startsWith('#menu-')) return false;
+  return id.startsWith('DAN-') || id.startsWith('DSM-');
+};
+
 let settings: AppSettings = loadJSON<AppSettings>(SETTINGS_FILE, INITIAL_SETTINGS);
 let menu: MenuItem[] = loadJSON<MenuItem[]>(MENU_FILE, INITIAL_MENU);
 let deletedOrderIds: string[] = loadJSON<string[]>(DELETED_ORDERS_FILE, []);
-let orders: OrderData[] = loadJSON<OrderData[]>(ORDERS_FILE, []).filter(o => !deletedOrderIds.includes(o.id));
+let orders: OrderData[] = loadJSON<OrderData[]>(ORDERS_FILE, []).filter(o => isValidOrder(o) && !deletedOrderIds.includes(o.id));
 
 // Helper to push order to Google Apps Script
 async function sendToAppsScript(order: OrderData, scriptUrl: string) {
@@ -140,16 +152,112 @@ async function sendToAppsScript(order: OrderData, scriptUrl: string) {
   }
 }
 
+async function relayMenuToAppsScript(action: string, payload: any) {
+  const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
+  if (!targetUrl) return { success: false, error: 'No Apps Script URL configured' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    const postBody = { action, ...payload };
+    const res = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(postBody),
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const text = await res.text();
+    let json: any = null;
+    try { json = JSON.parse(text); } catch {}
+
+    if (json && (json.success === true || json.status === 'ok')) {
+      return { success: true, response: json };
+    }
+
+    // Fallback: If POST returned HTML or didn't succeed, try GET fallback
+    const getController = new AbortController();
+    const getTimeout = setTimeout(() => getController.abort(), 8000);
+    let getUrl = `${targetUrl}?action=${encodeURIComponent(action)}&_t=${Date.now()}`;
+    if (payload.id) getUrl += `&id=${encodeURIComponent(payload.id)}`;
+    if (payload.status) getUrl += `&status=${encodeURIComponent(payload.status)}`;
+    if (payload.isBestSeller !== undefined) getUrl += `&isBestSeller=${encodeURIComponent(String(payload.isBestSeller))}`;
+    if (payload.item) {
+      const safeItem = { ...payload.item };
+      // Prevent URI length explosion
+      if (safeItem.imageUrl && safeItem.imageUrl.startsWith('data:')) {
+        delete safeItem.imageUrl;
+      }
+      getUrl += `&payload=${encodeURIComponent(JSON.stringify(safeItem))}`;
+    }
+
+    const getRes = await fetch(getUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: getController.signal,
+    });
+    clearTimeout(getTimeout);
+    const getText = await getRes.text();
+    let getJson: any = null;
+    try { getJson = JSON.parse(getText); } catch {}
+    if (getJson && (getJson.success === true || getJson.status === 'ok')) {
+      return { success: true, response: getJson };
+    }
+
+    return { success: false, error: (json && json.error) || text.slice(0, 100) };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
+  app.use('/uploads', express.static(UPLOADS_DIR));
+
+  // Endpoint Upload Foto Menu (Mengubah Base64 dari galeri/kamera menjadi file gambar ber-URL pendek)
+  app.post('/api/menu/upload-image', (req, res) => {
+    try {
+      const { image, filename } = req.body;
+      if (!image || typeof image !== 'string') {
+        return res.status(400).json({ success: false, error: 'Data gambar tidak valid' });
+      }
+
+      if (image.startsWith('http://') || image.startsWith('https://') || image.startsWith('/uploads/')) {
+        return res.json({ success: true, url: image });
+      }
+
+      const matches = image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+      if (!matches || matches.length < 3) {
+        return res.status(400).json({ success: false, error: 'Format base64 tidak valid' });
+      }
+
+      const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      const cleanName = filename ? filename.replace(/[^a-zA-Z0-9_-]/g, '') : 'menu';
+      const savedName = `${cleanName}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.${ext}`;
+      const filePath = path.join(UPLOADS_DIR, savedName);
+
+      fs.writeFileSync(filePath, buffer);
+      const publicUrl = `/uploads/${savedName}`;
+
+      res.json({ success: true, url: publicUrl });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Gagal menyimpan gambar' });
+    }
+  });
 
   // API Endpoints
   app.get('/api/menu', (_req, res) => {
     res.json({ success: true, menu });
   });
 
-  app.post('/api/menu/toggle-status', (req, res) => {
+  app.post('/api/menu/toggle-status', async (req, res) => {
     const { id } = req.body;
     const target = menu.find(m => m.id === id);
     if (!target) {
@@ -157,18 +265,38 @@ async function startServer() {
     }
     target.status = target.status === 'TERSEDIA' ? 'HABIS' : 'TERSEDIA';
     saveJSON(MENU_FILE, menu);
-    res.json({ success: true, menu });
+
+    // Relay ke Google Apps Script di backend
+    const sheetSync = await relayMenuToAppsScript('toggleMenuStatus', {
+      id: target.id,
+      status: target.status,
+      item: target
+    });
+
+    res.json({ success: true, menu, target, sheetSync });
   });
 
-  app.post('/api/menu/toggle-bestseller', (req, res) => {
-    const { id } = req.body;
+  app.post('/api/menu/toggle-bestseller', async (req, res) => {
+    const { id, isBestSeller } = req.body;
     const target = menu.find(m => m.id === id);
     if (!target) {
       return res.status(404).json({ success: false, error: 'Menu tidak ditemukan' });
     }
-    target.isBestSeller = !target.isBestSeller;
+    if (typeof isBestSeller === 'boolean') {
+      target.isBestSeller = isBestSeller;
+    } else {
+      target.isBestSeller = !target.isBestSeller;
+    }
     saveJSON(MENU_FILE, menu);
-    res.json({ success: true, menu, target });
+
+    // Relay ke Google Apps Script di backend
+    const sheetSync = await relayMenuToAppsScript('toggleBestSeller', {
+      id: target.id,
+      isBestSeller: target.isBestSeller,
+      item: target
+    });
+
+    res.json({ success: true, menu, target, sheetSync });
   });
 
   function sanitizeMenuItem(item: MenuItem): MenuItem {
@@ -216,27 +344,52 @@ async function startServer() {
     return { ...item, nama, kategori, harga };
   }
 
-  app.post('/api/menu/save-item', (req, res) => {
+  app.post('/api/menu/save-item', async (req, res) => {
     const rawItem: MenuItem = req.body;
     if (!rawItem || !rawItem.id) {
       return res.status(400).json({ success: false, error: 'Data menu tidak valid' });
     }
+
+    // Jika gambar berupa data base64, simpan otomatis ke file disk agar menjadi URL pendek
+    if (rawItem.imageUrl && rawItem.imageUrl.startsWith('data:image/')) {
+      try {
+        const matches = rawItem.imageUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+        if (matches && matches.length >= 3) {
+          const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+          const buffer = Buffer.from(matches[2], 'base64');
+          const savedName = `menu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.${ext}`;
+          fs.writeFileSync(path.join(UPLOADS_DIR, savedName), buffer);
+          rawItem.imageUrl = `/uploads/${savedName}`;
+        }
+      } catch (imgErr) {
+        console.error('Gagal convert base64 image:', imgErr);
+      }
+    }
+
     const item = sanitizeMenuItem(rawItem);
-    const idx = menu.findIndex(m => m.id === item.id);
+    const idx = menu.findIndex(m => m.id === item.id || m.nama.toLowerCase() === item.nama.toLowerCase());
     if (idx >= 0) {
       menu[idx] = { ...menu[idx], ...item };
     } else {
       menu.push(item);
     }
     saveJSON(MENU_FILE, menu);
-    res.json({ success: true, menu, item });
+
+    // Relay ke Google Apps Script di backend
+    const sheetSync = await relayMenuToAppsScript('saveMenuItem', { item });
+
+    res.json({ success: true, menu, item, sheetSync });
   });
 
-  app.delete('/api/menu/item/:id', (req, res) => {
+  app.delete('/api/menu/item/:id', async (req, res) => {
     const { id } = req.params;
     menu = menu.filter(m => m.id !== id);
     saveJSON(MENU_FILE, menu);
-    res.json({ success: true, menu });
+
+    // Relay ke Google Apps Script di backend
+    const sheetSync = await relayMenuToAppsScript('deleteMenuItem', { id });
+
+    res.json({ success: true, menu, sheetSync });
   });
 
   app.post('/api/menu/reset', (_req, res) => {
@@ -259,9 +412,9 @@ async function startServer() {
         if (sheetsRes && sheetsRes.ok) {
           const json: any = await sheetsRes.json().catch(() => null);
           if (json && json.success && Array.isArray(json.orders)) {
-            const remoteOrders = json.orders;
+            const remoteOrders = json.orders.filter(isValidOrder);
             const remoteIds = new Set(remoteOrders.map((o: any) => o.id));
-            const localOnly = orders.filter((o: any) => !remoteIds.has(o.id) && o.id.startsWith('DAN-'));
+            const localOnly = orders.filter((o: any) => isValidOrder(o) && !remoteIds.has(o.id));
             orders = [...remoteOrders, ...localOnly];
             saveJSON(ORDERS_FILE, orders);
           }
@@ -270,12 +423,16 @@ async function startServer() {
     } catch {
       // fallback to cached orders
     }
-    res.json({ success: true, orders });
+    const cleanOrders = orders.filter(isValidOrder);
+    res.json({ success: true, orders: cleanOrders });
   });
 
   app.post('/api/orders', async (req, res) => {
     try {
       const orderData: Partial<OrderData> = req.body;
+      if (orderData.id && (orderData.id.startsWith('menu-') || orderData.id.startsWith('#menu-'))) {
+        return res.status(400).json({ success: false, error: 'Data menu tidak boleh dicatat sebagai pesanan' });
+      }
       const now = new Date();
       const pad = (n: number) => n.toString().padStart(2, '0');
       const orderId = orderData.id || `DAN-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;

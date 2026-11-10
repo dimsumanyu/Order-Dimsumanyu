@@ -234,6 +234,14 @@ export default function App() {
     }
   });
 
+// Helper strictly ensures only real customer orders (DAN- or DSM-) are treated as orders
+const isRealCustomerOrder = (o: any): boolean => {
+  if (!o || !o.id) return false;
+  const idStr = String(o.id).trim();
+  if (idStr.startsWith('menu-') || idStr.toLowerCase().startsWith('#menu-')) return false;
+  return idStr.startsWith('DAN-') || idStr.startsWith('DSM-');
+};
+
   const [orders, setOrders] = useState<OrderData[]>(() => {
     try {
       const savedDeleted = localStorage.getItem('dimsumanyu_deleted_order_ids');
@@ -241,7 +249,11 @@ export default function App() {
       const saved = localStorage.getItem('dimsumanyu_orders');
       if (saved) {
         const parsed: OrderData[] = JSON.parse(saved);
-        return parsed.filter(o => o && !deletedSet.has(o.id));
+        const filtered = parsed.filter(o => isRealCustomerOrder(o) && !deletedSet.has(o.id));
+        try {
+          localStorage.setItem('dimsumanyu_orders', JSON.stringify(filtered));
+        } catch {}
+        return filtered;
       }
       return [];
     } catch {
@@ -572,10 +584,10 @@ export default function App() {
       // 1. ALWAYS prioritize direct live fetch from Google Sheets (Central Source of Truth across all devices)
       const sheetOrders = await fetchDirectFromGoogleSheets();
       if (sheetOrders && Array.isArray(sheetOrders)) {
-        const validSheetOrders = sheetOrders.filter((o: OrderData) => o && !deletedSet.has(o.id));
+        const validSheetOrders = sheetOrders.filter((o: OrderData) => isRealCustomerOrder(o) && !deletedSet.has(o.id));
         setOrders(prev => {
           const remoteIds = new Set(validSheetOrders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !remoteIds.has(p.id) && !deletedSet.has(p.id));
+          const localOnly = prev.filter(p => isRealCustomerOrder(p) && !remoteIds.has(p.id) && !deletedSet.has(p.id));
           const merged = enrichOrdersWithMenuPricing([...validSheetOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
@@ -592,10 +604,10 @@ export default function App() {
         .catch(() => null);
 
       if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
-        const validBackendOrders = resOrders.orders.filter((o: OrderData) => o && !deletedSet.has(o.id));
+        const validBackendOrders = resOrders.orders.filter((o: OrderData) => isRealCustomerOrder(o) && !deletedSet.has(o.id));
         setOrders(prev => {
           const remoteIds = new Set(validBackendOrders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !remoteIds.has(p.id) && !deletedSet.has(p.id));
+          const localOnly = prev.filter(p => isRealCustomerOrder(p) && !remoteIds.has(p.id) && !deletedSet.has(p.id));
           const merged = enrichOrdersWithMenuPricing([...validBackendOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
@@ -628,10 +640,10 @@ export default function App() {
       // 2. Pull directly from Google Sheets
       const sheetOrders = await fetchDirectFromGoogleSheets();
       if (sheetOrders && Array.isArray(sheetOrders)) {
-        const validSheetOrders = sheetOrders.filter((o: OrderData) => o && !deletedSet.has(o.id));
+        const validSheetOrders = sheetOrders.filter((o: OrderData) => isRealCustomerOrder(o) && !deletedSet.has(o.id));
         setOrders(prev => {
           const remoteIds = new Set(validSheetOrders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !remoteIds.has(p.id) && !deletedSet.has(p.id));
+          const localOnly = prev.filter(p => isRealCustomerOrder(p) && !remoteIds.has(p.id) && !deletedSet.has(p.id));
           const merged = enrichOrdersWithMenuPricing([...validSheetOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
@@ -691,10 +703,11 @@ export default function App() {
       // 2. Primary: Fetch directly from Google Sheets
       const directOrders = await fetchDirectFromGoogleSheets();
       if (directOrders && Array.isArray(directOrders)) {
+        const validDirectOrders = directOrders.filter((o: OrderData) => isRealCustomerOrder(o));
         setOrders(prev => {
-          const serverIds = new Set(directOrders.map((o: OrderData) => o.id));
-          const localOnly = prev.filter(p => p && !serverIds.has(p.id));
-          const merged = enrichOrdersWithMenuPricing([...directOrders, ...localOnly], menuItems);
+          const serverIds = new Set(validDirectOrders.map((o: OrderData) => o.id));
+          const localOnly = prev.filter(p => isRealCustomerOrder(p) && !serverIds.has(p.id));
+          const merged = enrichOrdersWithMenuPricing([...validDirectOrders, ...localOnly], menuItems);
           try {
             localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
           } catch {}
@@ -707,10 +720,11 @@ export default function App() {
           .then(r => (r.ok && r.headers.get('content-type')?.includes('application/json') ? r.json() : null))
           .catch(() => null);
         if (resOrders?.orders && Array.isArray(resOrders.orders) && resOrders.orders.length > 0) {
+          const validBackend = resOrders.orders.filter((o: OrderData) => isRealCustomerOrder(o));
           setOrders(prev => {
-            const serverIds = new Set(resOrders.orders.map((o: OrderData) => o.id));
-            const localOnly = prev.filter(p => p && !serverIds.has(p.id));
-            const merged = enrichOrdersWithMenuPricing([...resOrders.orders, ...localOnly], menuItems);
+            const serverIds = new Set(validBackend.map((o: OrderData) => o.id));
+            const localOnly = prev.filter(p => isRealCustomerOrder(p) && !serverIds.has(p.id));
+            const merged = enrichOrdersWithMenuPricing([...validBackend, ...localOnly], menuItems);
             try {
               localStorage.setItem('dimsumanyu_orders', JSON.stringify(merged));
             } catch {}
@@ -1291,6 +1305,7 @@ export default function App() {
   const handleSaveMenuItem = async (rawItem: MenuItem) => {
     const item = cleanAndSanitizeMenuItem(rawItem);
     try {
+      // 1. Optimistic local update
       setMenuItems(prev => {
         const index = prev.findIndex(m => m.id === item.id || m.nama.toLowerCase() === item.nama.toLowerCase());
         let updated: MenuItem[];
@@ -1304,29 +1319,38 @@ export default function App() {
         return updated;
       });
 
-      // 1. Fullstack server dispatch
+      // 2. Fullstack server dispatch (menyimpan foto ke disk publik & relay server-to-server ke Google Apps Script)
+      let finalItem = item;
       try {
-        await fetch('/api/menu/save-item', {
+        const res = await fetch('/api/menu/save-item', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(item),
         });
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData && resData.item) {
+            finalItem = resData.item;
+            setMenuItems(prev => {
+              const next = prev.map(m => m.id === finalItem.id ? finalItem : m);
+              localStorage.setItem('dimsumanyu_menu', JSON.stringify(next));
+              return next;
+            });
+          }
+        }
       } catch {}
 
-      // 2. Google Sheets sync (Two-way cloud persistence across all devices)
+      // 3. Direct Google Sheets client ping fallback (dengan payload ringan, tanpa Base64 raksasa)
       const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
       if (targetUrl) {
         try {
-          // POST
-          fetch(targetUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({ action: 'saveMenuItem', item }),
-          }).catch(() => {});
-
-          // GET fallback
-          const getUrl = `${targetUrl}?action=saveMenuItem&payload=${encodeURIComponent(JSON.stringify(item))}&_t=${Date.now()}`;
+          const safeItemForSheets = { ...finalItem };
+          if (safeItemForSheets.imageUrl && safeItemForSheets.imageUrl.startsWith('data:')) {
+            delete safeItemForSheets.imageUrl;
+          }
+          // PENTING: Jangan kirim POST langsung dari browser ke Apps Script karena script lama di sheet akan menangkap POST sebagai pesanan baru!
+          // Kirim pembaruan menu via GET dengan parameter action=saveMenuItem:
+          const getUrl = `${targetUrl}?action=saveMenuItem&payload=${encodeURIComponent(JSON.stringify(safeItemForSheets))}&_t=${Date.now()}`;
           fetch(getUrl, { mode: 'no-cors' }).catch(() => {});
         } catch (sheetsErr) {
           console.warn('Sync menu to Google Sheets failed:', sheetsErr);
@@ -1352,14 +1376,14 @@ export default function App() {
         return next;
       });
 
-      // 1. Fullstack server dispatch
+      // 1. Fullstack server dispatch (juga me-relay delete ke Google Sheets)
       try {
         await fetch(`/api/menu/item/${encodeURIComponent(id)}`, {
           method: 'DELETE',
         });
       } catch {}
 
-      // 2. Google Sheets sync
+      // 2. Direct client fallback ping ke Google Sheets
       const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
       if (targetUrl) {
         try {
@@ -1389,20 +1413,21 @@ export default function App() {
         return updated;
       });
 
-      // 1. Fullstack server dispatch
+      // 1. Fullstack server dispatch (update lokal & langsung relay server-to-server ke Google Apps Script)
       try {
         await fetch('/api/menu/toggle-bestseller', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id }),
+          body: JSON.stringify({ id, isBestSeller: targetItem?.isBestSeller }),
         });
       } catch {}
 
-      // 2. Google Sheets sync
+      // 2. Direct client fallback ke Google Apps Script
       const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
       if (targetUrl && targetItem) {
         try {
-          const getUrl = `${targetUrl}?action=saveMenuItem&payload=${encodeURIComponent(JSON.stringify(targetItem))}&_t=${Date.now()}`;
+          const isBsParam = targetItem.isBestSeller ? 'YA' : 'TIDAK';
+          const getUrl = `${targetUrl}?action=toggleBestSeller&id=${encodeURIComponent(targetItem.id)}&isBestSeller=${isBsParam}&_t=${Date.now()}`;
           fetch(getUrl, { mode: 'no-cors' }).catch(() => {});
         } catch {}
       }

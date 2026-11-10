@@ -401,11 +401,18 @@ function doGet(e) {
     })).setMimeType(ContentService.MimeType.JSON);
   }
 
-  // 4. Pencatatan Pesanan via GET
-  if (action === 'order' || (e && e.parameter && e.parameter.payload)) {
+  // 4. Pencatatan Pesanan via GET (HANYA jika action adalah 'order', 'saveOrder', atau jika tidak ada action sama sekali tapi ada payload pesanan)
+  if (action === 'order' || action === 'saveOrder' || action === 'createOrder' || (!action && e && e.parameter && e.parameter.payload)) {
     try {
       var rawPayload = e.parameter.payload || e.parameter.data;
       var orderObj = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+
+      // Keamanan ekstra: Jangan simpan jika ini adalah menu item
+      if (orderObj && (orderObj.action === 'saveMenuItem' || (orderObj.id && String(orderObj.id).indexOf('menu-') === 0))) {
+        return ContentService.createTextOutput(JSON.stringify(saveMenuItemToSheet(orderObj.item || orderObj)))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
       var res = simpanPesanan(orderObj);
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
@@ -455,6 +462,19 @@ function doGet(e) {
     var tStatus = e.parameter.status;
     var tRes = toggleMenuStatusInSheet(tMenuId, tStatus);
     return ContentService.createTextOutput(JSON.stringify(tRes))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // 5E. Ubah Status Best Seller via GET
+  if (action === 'toggleBestSeller' || action === 'setBestSeller' || action === 'updateBestSeller') {
+    var bsMenuId = e.parameter.id || e.parameter.menuId;
+    var bsVal = e.parameter.isBestSeller;
+    var isBsBool = undefined;
+    if (bsVal !== undefined) {
+      isBsBool = (bsVal === 'true' || bsVal === true || bsVal === 'YA' || bsVal === '1');
+    }
+    var bsRes = toggleBestSellerInSheet(bsMenuId, isBsBool);
+    return ContentService.createTextOutput(JSON.stringify(bsRes))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
@@ -550,8 +570,11 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Simpan / Update Menu via POST
-    if (data.action === 'saveMenu' || data.action === 'saveMenuItem') {
+    // Simpan / Update Menu via POST (atau jika payload berisi data menu, JANGAN PERNAH dimasukkan ke pesanan)
+    if (data.action === 'saveMenu' || data.action === 'saveMenuItem' || 
+        (data.id && String(data.id).indexOf('menu-') === 0) ||
+        (data.item && data.item.id && String(data.item.id).indexOf('menu-') === 0) ||
+        (data.kategori && !data.rincianMenu && !data.items)) {
       var savePostRes = saveMenuItemToSheet(data.item || data);
       return ContentService.createTextOutput(JSON.stringify(savePostRes))
         .setMimeType(ContentService.MimeType.JSON);
@@ -570,8 +593,15 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify(togglePostRes))
         .setMimeType(ContentService.MimeType.JSON);
     }
+
+    // Ubah status Best Seller via POST
+    if (data.action === 'toggleBestSeller' || data.action === 'setBestSeller' || data.action === 'updateBestSeller') {
+      var bsPostRes = toggleBestSellerInSheet(data.id || data.menuId, data.isBestSeller);
+      return ContentService.createTextOutput(JSON.stringify(bsPostRes))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     
-    // Default aksi: simpan pesanan
+    // Default aksi: simpan pesanan (hanya jika benar-benar pesanan)
     var saveResult = simpanPesanan(data);
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -593,6 +623,20 @@ function doPost(e) {
 // PENYIMPANAN PESANAN KE SHEET 'Pesanan' (DENGAN DEDUPLIKASI & AUTO-MAP KOLOM)
 // -------------------------------------------------------------
 function simpanPesanan(orderData) {
+  if (!orderData) return { success: false, error: "Data pesanan kosong" };
+  var rawOrderId = String(orderData.id || "").trim();
+  
+  // CEGAH KESALAHAN FATAL: Menu TIDAK BOLEH pernah masuk ke sheet 'Pesanan'!
+  if (rawOrderId.indexOf("menu-") === 0 || orderData.action === "saveMenuItem" || orderData.action === "saveMenu") {
+    Logger.log("Mencegah data menu masuk ke sheet Pesanan: " + rawOrderId);
+    return { success: false, error: "Data menu dicegah masuk ke sheet Pesanan" };
+  }
+
+  // Pesanan sah harus diawali DAN- atau DSM- atau memiliki rincian pesanan
+  if (!rawOrderId.startsWith("DAN-") && !rawOrderId.startsWith("DSM-") && !orderData.rincianMenu && !orderData.items) {
+    return { success: false, error: "Format data bukan pesanan sah" };
+  }
+
   var ss = getTargetSpreadsheet();
   
   getOrCreateAdminUsersSheet(ss);
@@ -727,11 +771,11 @@ function mapMenuHeaders(headers) {
       map.keterangan = h;
     }
     // Deteksi Best Seller
-    else if (hText.indexOf('best') !== -1 || hText.indexOf('seller') !== -1 || hText.indexOf('unggulan') !== -1) {
+    else if (hText.indexOf('best') !== -1 || hText.indexOf('seller') !== -1 || hText.indexOf('unggulan') !== -1 || hText.indexOf('favorit') !== -1 || hText.indexOf('laris') !== -1) {
       map.bestSeller = h;
     }
     // Deteksi Gambar
-    else if (hText.indexOf('gambar') !== -1 || hText.indexOf('image') !== -1 || hText.indexOf('foto') !== -1 || hText.indexOf('url') !== -1) {
+    else if (hText.indexOf('gambar') !== -1 || hText.indexOf('image') !== -1 || hText.indexOf('foto') !== -1 || hText.indexOf('url') !== -1 || hText.indexOf('photo') !== -1) {
       map.imageUrl = h;
     }
   }
@@ -800,7 +844,7 @@ function getMenuFromSheet() {
 
     var rawId = colMap.id !== -1 && r[colMap.id] ? String(r[colMap.id]).trim() : ('menu-' + i);
     var rawStatus = colMap.status !== -1 ? String(r[colMap.status] || 'TERSEDIA').trim().toUpperCase() : 'TERSEDIA';
-    var isBest = colMap.bestSeller !== -1 ? (String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'YA' || String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'TRUE') : false;
+    var isBest = colMap.bestSeller !== -1 ? (String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'YA' || String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'TRUE' || String(r[colMap.bestSeller] || '').trim() === '1') : false;
     var img = colMap.imageUrl !== -1 && r[colMap.imageUrl] ? String(r[colMap.imageUrl]).trim() : '';
     
     list.push({
@@ -830,6 +874,28 @@ function saveMenuItemToSheet(item) {
   if (values.length === 0) return { success: false, error: "Sheet kosong" };
 
   var colMap = mapMenuHeaders(values[0]);
+
+  // AUTO-ADD KOLOM JIKA BELUM ADA DI BARIS 1:
+  // Jika kolom 'Best Seller' atau 'URL Gambar' belum ada di spreadsheet user, tambahkan otomatis!
+  var headersChanged = false;
+  var currentHeaderRow = values[0];
+  if (colMap.bestSeller === -1) {
+    var newBsCol = currentHeaderRow.length + 1;
+    sheet.getRange(1, newBsCol).setValue("Best Seller (YA/TIDAK)");
+    colMap.bestSeller = currentHeaderRow.length;
+    currentHeaderRow.push("Best Seller (YA/TIDAK)");
+    headersChanged = true;
+  }
+  if (colMap.imageUrl === -1) {
+    var newImgCol = currentHeaderRow.length + 1;
+    sheet.getRange(1, newImgCol).setValue("URL Gambar");
+    colMap.imageUrl = currentHeaderRow.length;
+    currentHeaderRow.push("URL Gambar");
+    headersChanged = true;
+  }
+  if (headersChanged) {
+    values = sheet.getDataRange().getValues();
+  }
 
   var inputNama = String(item.nama || '').trim();
   var inputKategori = String(item.kategori || 'DIMSUM').trim().toUpperCase();
@@ -875,16 +941,24 @@ function saveMenuItemToSheet(item) {
     }
   }
 
-  var maxCol = values[0].length;
+  var maxCol = Math.max(values[0].length, (colMap.imageUrl !== -1 ? colMap.imageUrl + 1 : 0), (colMap.bestSeller !== -1 ? colMap.bestSeller + 1 : 0));
   var rowData = new Array(maxCol).fill("");
   if (colMap.id !== -1) rowData[colMap.id] = targetId || ("menu-" + Date.now());
   rowData[colMap.nama] = inputNama;
   rowData[colMap.kategori] = inputKategori;
   rowData[colMap.harga] = inputHarga;
-  rowData[colMap.status] = String(item.status || "TERSEDIA").toUpperCase();
+  if (colMap.status !== -1) rowData[colMap.status] = String(item.status || "TERSEDIA").toUpperCase();
   if (colMap.keterangan !== -1) rowData[colMap.keterangan] = String(item.keterangan || "").trim();
-  if (colMap.bestSeller !== -1) rowData[colMap.bestSeller] = item.isBestSeller ? "YA" : "TIDAK";
-  if (colMap.imageUrl !== -1) rowData[colMap.imageUrl] = String(item.imageUrl || "").trim();
+  if (colMap.bestSeller !== -1) {
+    var isBestBool = (item.isBestSeller === true || item.isBestSeller === 'YA' || item.isBestSeller === 'true' || item.isBestSeller === 1);
+    rowData[colMap.bestSeller] = isBestBool ? "YA" : "TIDAK";
+  }
+  if (colMap.imageUrl !== -1) {
+    var imgVal = String(item.imageUrl || "").trim();
+    // Cegah melebihi limit sel 50.000 karakter
+    if (imgVal.length > 40000) imgVal = imgVal.substring(0, 40000);
+    rowData[colMap.imageUrl] = imgVal;
+  }
 
   if (rowIndex > 0) {
     sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
@@ -893,6 +967,44 @@ function saveMenuItemToSheet(item) {
   }
 
   return { success: true, message: "Menu '" + inputNama + "' berhasil disimpan!", item: item };
+}
+
+function toggleBestSellerInSheet(id, isBestSeller) {
+  var ss = getTargetSpreadsheet();
+  var sheet = getOrCreateMenuSheet(ss);
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return { success: false, message: "Sheet Menu kosong" };
+  
+  var colMap = mapMenuHeaders(values[0]);
+  if (colMap.bestSeller === -1) {
+    var newBsCol = values[0].length + 1;
+    sheet.getRange(1, newBsCol).setValue("Best Seller (YA/TIDAK)");
+    colMap.bestSeller = values[0].length;
+    values = sheet.getDataRange().getValues();
+  }
+
+  var targetId = String(id || '').trim().toLowerCase();
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    var rId = colMap.id !== -1 ? String(r[colMap.id] || '').trim().toLowerCase() : '';
+    var rNama = String(r[colMap.nama] || '').trim().toLowerCase();
+    if ((targetId && rId && rId === targetId) || (targetId && rNama && rNama === targetId)) {
+      var currentVal = String(r[colMap.bestSeller] || '').trim().toUpperCase();
+      var nextVal = "YA";
+      if (typeof isBestSeller === 'boolean') {
+        nextVal = isBestSeller ? "YA" : "TIDAK";
+      } else if (typeof isBestSeller === 'string' && (isBestSeller.toUpperCase() === 'YA' || isBestSeller.toUpperCase() === 'TRUE')) {
+        nextVal = "YA";
+      } else if (typeof isBestSeller === 'string' && (isBestSeller.toUpperCase() === 'TIDAK' || isBestSeller.toUpperCase() === 'FALSE')) {
+        nextVal = "TIDAK";
+      } else {
+        nextVal = (currentVal === "YA" || currentVal === "TRUE") ? "TIDAK" : "YA";
+      }
+      sheet.getRange(i + 1, colMap.bestSeller + 1).setValue(nextVal);
+      return { success: true, id: id, isBestSeller: nextVal === "YA", value: nextVal };
+    }
+  }
+  return { success: false, message: "Menu '" + id + "' tidak ditemukan di sheet" };
 }
 
 function deleteMenuItemFromSheet(id) {
@@ -1007,9 +1119,21 @@ function getPesananFromSheet() {
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
     
-    // Temukan Order ID (baik di colMap.orderId atau scan format DAN- / DSM- di baris ini)
-    var orderId = String(row[colMap.orderId] || "").trim();
-    if (!orderId || (!orderId.startsWith("DAN-") && !orderId.startsWith("DSM-"))) {
+    // Auto-clean & proteksi: Hapus dan abaikan jika ada baris di sheet Pesanan yang ID-nya diawali menu-
+    var rawCheckId = String(row[colMap.orderId] || "").trim();
+    if (rawCheckId.indexOf("menu-") === 0) {
+      try {
+        sheet.deleteRow(i + 1);
+        i--;
+        values = sheet.getDataRange().getValues();
+      } catch (delErr) {}
+      continue;
+    }
+
+    // Temukan Order ID (wajib diawali DAN- atau DSM-)
+    var orderId = rawCheckId;
+    if (!orderId.startsWith("DAN-") && !orderId.startsWith("DSM-")) {
+      orderId = "";
       for (var c = 0; c < row.length; c++) {
         var valStr = String(row[c] || "").trim();
         if (valStr.startsWith("DAN-") || valStr.startsWith("DSM-")) {
@@ -1018,7 +1142,8 @@ function getPesananFromSheet() {
         }
       }
     }
-    if (!orderId) continue;
+    // Jika tidak diawali DAN- atau DSM-, abaikan baris ini
+    if (!orderId || (!orderId.startsWith("DAN-") && !orderId.startsWith("DSM-"))) continue;
 
     // Cegah duplikat ID pada daftar pesanan
     if (seenIds[orderId]) continue;
@@ -1036,14 +1161,15 @@ function getPesananFromSheet() {
     // Rekonstruksi items agar struk dan rincian menu tampil rapi (Anti-kembar & multiline safe)
     var parsedItems = [];
     if (rincian) {
-      var rawLines = rincian.replace(/\r/g, "").split("\n");
+      var rawLines = rincian.replace(new RegExp(String.fromCharCode(13), 'g'), '').split(String.fromCharCode(10));
       var mergedLines = [];
       for (var rl = 0; rl < rawLines.length; rl++) {
         var trLine = rawLines[rl].trim();
         if (!trLine) continue;
-        var isNewItem = /^(\d+)\s*x\s+/i.test(trLine) || /^[•\-\*]/.test(trLine) || /^\[\s*\]/.test(trLine);
+        var firstChar = trLine.charAt(0);
+        var isNewItem = (firstChar >= '0' && firstChar <= '9') || firstChar === '•' || firstChar === '-' || firstChar === '*' || firstChar === '[';
         if (!isNewItem && mergedLines.length > 0) {
-          mergedLines[mergedLines.length - 1] += " " + trLine;
+          mergedLines[mergedLines.length - 1] += ' ' + trLine;
         } else {
           mergedLines.push(trLine);
         }
@@ -1052,15 +1178,17 @@ function getPesananFromSheet() {
       for (var l = 0; l < mergedLines.length; l++) {
         var line = mergedLines[l].trim();
         if (!line) continue;
-        var match = line.match(/^(\d+)\s*x\s+(.+)$/i);
-        if (match) {
-          var qty = parseInt(match[1], 10) || 1;
-          var itemNama = match[2].trim();
+        var xIndex = line.indexOf('x ');
+        if (xIndex === -1) xIndex = line.indexOf('X ');
+        if (xIndex > 0 && line.substring(0, xIndex).trim().replace(/[^0-9]/g, '').length > 0) {
+          var qty = parseInt(line.substring(0, xIndex).replace(/[^0-9]/g, ''), 10) || 1;
+          var itemNama = line.substring(xIndex + 2).trim();
           var itemHarga = 0;
-          var priceMatch = itemNama.match(/\(?Rp\.?\s*([0-9.,]+)\)?/i);
-          if (priceMatch) {
-            itemHarga = parseInt(priceMatch[1].replace(/[^0-9]/g, ""), 10) || 0;
-            itemNama = itemNama.replace(/\(?Rp\.?\s*[0-9.,]+\)?/gi, "").trim();
+          var rpIndex = itemNama.toUpperCase().indexOf('RP');
+          if (rpIndex !== -1) {
+            var rawPricePart = itemNama.substring(rpIndex);
+            itemHarga = parseInt(rawPricePart.replace(/[^0-9]/g, ''), 10) || 0;
+            itemNama = itemNama.substring(0, rpIndex).replace(/[\(\[\{]/g, '').trim();
           }
           parsedItems.push({
             id: 'item-' + l,
@@ -1070,7 +1198,7 @@ function getPesananFromSheet() {
             subtotal: itemHarga * qty
           });
         } else {
-          if (!line.startsWith("(") || !line.endsWith(")")) {
+          if (!line.startsWith('(') || !line.endsWith(')')) {
             parsedItems.push({
               id: 'item-' + l,
               nama: line,
@@ -1087,7 +1215,7 @@ function getPesananFromSheet() {
       var seenItemMap = {};
       for (var pi = 0; pi < parsedItems.length; pi++) {
         var pItem = parsedItems[pi];
-        var pKey = pItem.nama.toLowerCase().replace(/[^a-z0-9]/g, "");
+        var pKey = pItem.nama.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (seenItemMap[pKey] !== undefined) {
           var existIdx = seenItemMap[pKey];
           var currentSum = 0;
@@ -1118,7 +1246,9 @@ function getPesananFromSheet() {
       rawOpsi = "Diantar ke Alamat";
     }
 
-    if (rawAlamat.match(/^\\d+x\\s+/i) || rawAlamat.indexOf('(Rp ') !== -1 || rawAlamat === rincian) {
+    var firstAlamatChar = rawAlamat.charAt(0);
+    var isAlamatStartsWithQty = (firstAlamatChar >= '0' && firstAlamatChar <= '9') && (rawAlamat.indexOf('x ') !== -1 || rawAlamat.indexOf('X ') !== -1);
+    if (isAlamatStartsWithQty || rawAlamat.indexOf('(Rp ') !== -1 || rawAlamat === rincian) {
       rawAlamat = (rawOpsi.indexOf("Ambil") !== -1) ? "Ambil langsung di Outlet DIMSUMANYU" : "";
     }
 
