@@ -105,11 +105,22 @@ export function cleanAndSanitizeMenuItem(item: MenuItem): MenuItem {
     harga = 35000;
   }
 
+  // 6. Pastikan kolom keterangan TIDAK PERNAH terisi teks "BEST SELLER"
+  let keterangan = String(item.keterangan || '').trim();
+  if (keterangan.toUpperCase() === 'BEST SELLER') {
+    keterangan = '';
+  }
+
+  // 7. Normalisasi status Best Seller ke boolean murni
+  const isBestSeller = Boolean(item.isBestSeller);
+
   return {
     ...item,
     nama,
     kategori,
     harga,
+    keterangan,
+    isBestSeller,
   };
 }
 
@@ -1252,14 +1263,16 @@ const isRealCustomerOrder = (o: any): boolean => {
   const handleToggleMenuStatus = async (id: string) => {
     try {
       let targetStatus: 'TERSEDIA' | 'HABIS' = 'TERSEDIA';
+      let targetItem: MenuItem | undefined;
       setMenuItems(prev => {
         const updated = prev.map(item => {
           if (item.id === id) {
             targetStatus = item.status === 'TERSEDIA' ? 'HABIS' : 'TERSEDIA';
-            return {
+            targetItem = {
               ...item,
               status: targetStatus,
             };
+            return targetItem;
           }
           return item;
         });
@@ -1267,20 +1280,22 @@ const isRealCustomerOrder = (o: any): boolean => {
         return updated;
       });
 
+      const targetNama = targetItem ? targetItem.nama : '';
+
       // 1. Fullstack server dispatch
       try {
         await fetch('/api/menu/toggle-status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id }),
+          body: JSON.stringify({ id, nama: targetNama }),
         });
       } catch {}
 
-      // 2. Google Sheets sync
+      // 2. Google Sheets sync (kirim nama produk sebagai id & nama agar sheet lama maupun baru langsung cocok)
       const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
       if (targetUrl) {
         try {
-          fetch(`${targetUrl}?action=toggleMenuStatus&id=${encodeURIComponent(id)}&status=${targetStatus}&_t=${Date.now()}`, { mode: 'no-cors' }).catch(() => {});
+          fetch(`${targetUrl}?action=toggleMenuStatus&id=${encodeURIComponent(targetNama || id)}&nama=${encodeURIComponent(targetNama)}&status=${targetStatus}&_t=${Date.now()}`, { mode: 'no-cors' }).catch(() => {});
         } catch {}
       }
     } catch (err: any) {
@@ -1302,12 +1317,12 @@ const isRealCustomerOrder = (o: any): boolean => {
     }
   };
 
-  const handleSaveMenuItem = async (rawItem: MenuItem) => {
+  const handleSaveMenuItem = async (rawItem: MenuItem & { originalNama?: string }) => {
     const item = cleanAndSanitizeMenuItem(rawItem);
     try {
       // 1. Optimistic local update
       setMenuItems(prev => {
-        const index = prev.findIndex(m => m.id === item.id || m.nama.toLowerCase() === item.nama.toLowerCase());
+        const index = prev.findIndex(m => m.id === item.id || (rawItem.originalNama && m.nama.toLowerCase() === rawItem.originalNama.toLowerCase()) || m.nama.toLowerCase() === item.nama.toLowerCase());
         let updated: MenuItem[];
         if (index >= 0) {
           updated = [...prev];
@@ -1325,7 +1340,7 @@ const isRealCustomerOrder = (o: any): boolean => {
         const res = await fetch('/api/menu/save-item', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item),
+          body: JSON.stringify({ ...item, originalNama: rawItem.originalNama }),
         });
         if (res.ok) {
           const resData = await res.json();
@@ -1340,11 +1355,12 @@ const isRealCustomerOrder = (o: any): boolean => {
         }
       } catch {}
 
-      // 3. Direct Google Sheets client ping fallback (dengan payload ringan, tanpa Base64 raksasa)
+      // 3. Direct Google Sheets client ping fallback (dengan payload URL gambar lengkap, tanpa Base64 raksasa)
       const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
       if (targetUrl) {
         try {
-          const safeItemForSheets = { ...finalItem };
+          const safeItemForSheets = { ...finalItem, originalNama: rawItem.originalNama || finalItem.nama };
+          // Jika gambar masih berupa base64 murni di browser, hapus dari query URL agar tidak error URI length
           if (safeItemForSheets.imageUrl && safeItemForSheets.imageUrl.startsWith('data:')) {
             delete safeItemForSheets.imageUrl;
           }
@@ -1363,6 +1379,9 @@ const isRealCustomerOrder = (o: any): boolean => {
 
   const handleDeleteMenuItem = async (id: string) => {
     try {
+      const targetItem = menuItems.find(m => m.id === id);
+      const targetNama = targetItem ? targetItem.nama : id;
+
       setMenuItems(prev => {
         const updated = prev.filter(m => m.id !== id);
         localStorage.setItem('dimsumanyu_menu', JSON.stringify(updated));
@@ -1387,7 +1406,7 @@ const isRealCustomerOrder = (o: any): boolean => {
       const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
       if (targetUrl) {
         try {
-          fetch(`${targetUrl}?action=deleteMenuItem&id=${encodeURIComponent(id)}&_t=${Date.now()}`, { mode: 'no-cors' }).catch(() => {});
+          fetch(`${targetUrl}?action=deleteMenuItem&id=${encodeURIComponent(targetNama)}&nama=${encodeURIComponent(targetNama)}&menuId=${encodeURIComponent(id)}&_t=${Date.now()}`, { mode: 'no-cors' }).catch(() => {});
         } catch {}
       }
     } catch (err: any) {
@@ -1403,6 +1422,7 @@ const isRealCustomerOrder = (o: any): boolean => {
           if (item.id === id) {
             targetItem = {
               ...item,
+              keterangan: (item.keterangan && item.keterangan.trim().toUpperCase() === 'BEST SELLER') ? '' : item.keterangan,
               isBestSeller: !item.isBestSeller,
             };
             return targetItem;
@@ -1413,21 +1433,24 @@ const isRealCustomerOrder = (o: any): boolean => {
         return updated;
       });
 
+      const targetNama = targetItem ? targetItem.nama : '';
+      const isBsParam = targetItem?.isBestSeller ? 'YA' : 'TIDAK';
+
       // 1. Fullstack server dispatch (update lokal & langsung relay server-to-server ke Google Apps Script)
       try {
         await fetch('/api/menu/toggle-bestseller', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, isBestSeller: targetItem?.isBestSeller }),
+          body: JSON.stringify({ id, nama: targetNama, isBestSeller: targetItem?.isBestSeller }),
         });
       } catch {}
 
-      // 2. Direct client fallback ke Google Apps Script
+      // 2. Direct client fallback ke Google Apps Script:
+      // PENTING: Gunakan targetNama sebagai 'id' dan 'nama' agar script di Google Sheets (yang kolomnya 'Nama Menu', tanpa kolom 'ID') langsung menemukan baris dan mengubah statusnya menjadi YA / TIDAK!
       const targetUrl = settings.appsScriptUrl || INITIAL_SETTINGS.appsScriptUrl;
       if (targetUrl && targetItem) {
         try {
-          const isBsParam = targetItem.isBestSeller ? 'YA' : 'TIDAK';
-          const getUrl = `${targetUrl}?action=toggleBestSeller&id=${encodeURIComponent(targetItem.id)}&isBestSeller=${isBsParam}&_t=${Date.now()}`;
+          const getUrl = `${targetUrl}?action=toggleBestSeller&id=${encodeURIComponent(targetNama || targetItem.id)}&nama=${encodeURIComponent(targetNama)}&menuId=${encodeURIComponent(targetItem.id)}&isBestSeller=${isBsParam}&_t=${Date.now()}`;
           fetch(getUrl, { mode: 'no-cors' }).catch(() => {});
         } catch {}
       }

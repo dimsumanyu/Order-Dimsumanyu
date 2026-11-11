@@ -60,7 +60,7 @@ interface MenuEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   menuItems: MenuItem[];
-  onSaveMenuItem: (item: MenuItem) => Promise<void>;
+  onSaveMenuItem: (item: MenuItem & { originalNama?: string }) => Promise<void>;
   onDeleteMenuItem: (id: string) => Promise<void>;
   onToggleStatus: (id: string) => Promise<void>;
   onToggleBestSeller: (id: string) => Promise<void>;
@@ -98,6 +98,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formId, setFormId] = useState<string | null>(null);
   const [formNama, setFormNama] = useState('');
+  const [formOriginalNama, setFormOriginalNama] = useState('');
   const [formKategori, setFormKategori] = useState('KUKUS');
   const [customKategori, setCustomKategori] = useState('');
   const [formHarga, setFormHarga] = useState<number>(25000);
@@ -140,6 +141,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
   const handleOpenAddForm = () => {
     setFormId(null);
     setFormNama('');
+    setFormOriginalNama('');
     setFormKategori('KUKUS');
     setCustomKategori('');
     setFormHarga(25000);
@@ -153,6 +155,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
   const handleOpenEditForm = (item: MenuItem) => {
     setFormId(item.id);
     setFormNama(item.nama);
+    setFormOriginalNama(item.nama);
     if (CATEGORY_PRESETS.includes(item.kategori.toUpperCase())) {
       setFormKategori(item.kategori.toUpperCase());
       setCustomKategori('');
@@ -161,7 +164,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
       setCustomKategori(item.kategori);
     }
     setFormHarga(item.harga);
-    setFormKeterangan(item.keterangan || '');
+    setFormKeterangan((item.keterangan && item.keterangan.trim().toUpperCase() === 'BEST SELLER') ? '' : (item.keterangan || ''));
     setFormImageUrl(item.imageUrl || '');
     setFormStatus(item.status);
     setFormIsBestSeller(!!item.isBestSeller);
@@ -188,13 +191,16 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
       formId ||
       `menu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-    const newItem: MenuItem = {
+    const cleanKeterangan = formKeterangan.trim().toUpperCase() === 'BEST SELLER' ? '' : formKeterangan.trim();
+
+    const newItem: MenuItem & { originalNama?: string } = {
       id,
       nama: formNama.trim(),
+      originalNama: formOriginalNama || undefined,
       kategori: finalKategori,
       harga: Number(formHarga),
       status: formStatus,
-      keterangan: formKeterangan.trim(),
+      keterangan: cleanKeterangan,
       isBestSeller: formIsBestSeller,
       imageUrl: formImageUrl.trim() || undefined,
     };
@@ -617,7 +623,11 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
                             if (res.ok) {
                               const data = await res.json();
                               if (data && data.success && data.url) {
-                                uploadedUrl = data.url;
+                                let fullUrl = data.url;
+                                if (fullUrl.startsWith('/uploads/')) {
+                                  fullUrl = window.location.origin + fullUrl;
+                                }
+                                uploadedUrl = fullUrl;
                               }
                             }
                           } catch {}

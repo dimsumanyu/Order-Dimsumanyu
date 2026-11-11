@@ -183,11 +183,13 @@ async function relayMenuToAppsScript(action: string, payload: any) {
     const getTimeout = setTimeout(() => getController.abort(), 8000);
     let getUrl = `${targetUrl}?action=${encodeURIComponent(action)}&_t=${Date.now()}`;
     if (payload.id) getUrl += `&id=${encodeURIComponent(payload.id)}`;
+    if (payload.nama) getUrl += `&nama=${encodeURIComponent(payload.nama)}`;
+    if (payload.originalNama) getUrl += `&originalNama=${encodeURIComponent(payload.originalNama)}`;
     if (payload.status) getUrl += `&status=${encodeURIComponent(payload.status)}`;
     if (payload.isBestSeller !== undefined) getUrl += `&isBestSeller=${encodeURIComponent(String(payload.isBestSeller))}`;
     if (payload.item) {
       const safeItem = { ...payload.item };
-      // Prevent URI length explosion
+      // Prevent URI length explosion if still base64
       if (safeItem.imageUrl && safeItem.imageUrl.startsWith('data:')) {
         delete safeItem.imageUrl;
       }
@@ -244,9 +246,11 @@ async function startServer() {
       const filePath = path.join(UPLOADS_DIR, savedName);
 
       fs.writeFileSync(filePath, buffer);
-      const publicUrl = `/uploads/${savedName}`;
+      const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+      const host = req.get('host') || 'localhost:3000';
+      const publicUrl = `${protocol}://${host}/uploads/${savedName}`;
 
-      res.json({ success: true, url: publicUrl });
+      res.json({ success: true, url: publicUrl, localUrl: `/uploads/${savedName}` });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message || 'Gagal menyimpan gambar' });
     }
@@ -258,17 +262,19 @@ async function startServer() {
   });
 
   app.post('/api/menu/toggle-status', async (req, res) => {
-    const { id } = req.body;
-    const target = menu.find(m => m.id === id);
+    const { id, nama } = req.body;
+    const target = menu.find(m => m.id === id || (nama && m.nama.toLowerCase() === nama.toLowerCase()));
     if (!target) {
       return res.status(404).json({ success: false, error: 'Menu tidak ditemukan' });
     }
     target.status = target.status === 'TERSEDIA' ? 'HABIS' : 'TERSEDIA';
     saveJSON(MENU_FILE, menu);
 
-    // Relay ke Google Apps Script di backend
+    // Relay ke Google Apps Script di backend: gunakan nama produk agar langsung cocok dengan Google Sheet
     const sheetSync = await relayMenuToAppsScript('toggleMenuStatus', {
-      id: target.id,
+      id: target.nama,
+      nama: target.nama,
+      menuId: target.id,
       status: target.status,
       item: target
     });
@@ -277,8 +283,8 @@ async function startServer() {
   });
 
   app.post('/api/menu/toggle-bestseller', async (req, res) => {
-    const { id, isBestSeller } = req.body;
-    const target = menu.find(m => m.id === id);
+    const { id, nama, isBestSeller } = req.body;
+    const target = menu.find(m => m.id === id || (nama && m.nama.toLowerCase() === nama.toLowerCase()));
     if (!target) {
       return res.status(404).json({ success: false, error: 'Menu tidak ditemukan' });
     }
@@ -287,13 +293,17 @@ async function startServer() {
     } else {
       target.isBestSeller = !target.isBestSeller;
     }
+    if (target.keterangan && target.keterangan.trim().toUpperCase() === 'BEST SELLER') {
+      target.keterangan = '';
+    }
     saveJSON(MENU_FILE, menu);
 
-    // Relay ke Google Apps Script di backend
+    // Relay ke Google Apps Script: kirim action toggleBestSeller TANPA payload 'kategori' agar hanya mengubah kolom Best Seller (YA/TIDAK)
     const sheetSync = await relayMenuToAppsScript('toggleBestSeller', {
-      id: target.id,
-      isBestSeller: target.isBestSeller,
-      item: target
+      id: target.nama,
+      nama: target.nama,
+      menuId: target.id,
+      isBestSeller: target.isBestSeller ? 'YA' : 'TIDAK'
     });
 
     res.json({ success: true, menu, target, sheetSync });
@@ -341,25 +351,35 @@ async function startServer() {
       else kategori = 'DIMSUM';
     }
 
-    return { ...item, nama, kategori, harga };
+    let keterangan = String(item.keterangan || '').trim();
+    if (keterangan.toUpperCase() === 'BEST SELLER') {
+      keterangan = '';
+    }
+
+    let isBestSeller = Boolean((item as any).isBestSeller === true || (item as any).isBestSeller === 'YA' || (item as any).isBestSeller === 'true');
+
+    return { ...item, nama, kategori, harga, keterangan, isBestSeller };
   }
 
   app.post('/api/menu/save-item', async (req, res) => {
-    const rawItem: MenuItem = req.body;
+    const rawItem: MenuItem & { originalNama?: string } = req.body;
     if (!rawItem || !rawItem.id) {
       return res.status(400).json({ success: false, error: 'Data menu tidak valid' });
     }
 
-    // Jika gambar berupa data base64, simpan otomatis ke file disk agar menjadi URL pendek
+    // Jika gambar berupa data base64, simpan otomatis ke file disk agar menjadi URL publik permanen
     if (rawItem.imageUrl && rawItem.imageUrl.startsWith('data:image/')) {
       try {
         const matches = rawItem.imageUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
         if (matches && matches.length >= 3) {
           const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
           const buffer = Buffer.from(matches[2], 'base64');
-          const savedName = `menu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.${ext}`;
+          const cleanName = (rawItem.nama || 'menu').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+          const savedName = `${cleanName}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.${ext}`;
           fs.writeFileSync(path.join(UPLOADS_DIR, savedName), buffer);
-          rawItem.imageUrl = `/uploads/${savedName}`;
+          const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+          const host = req.get('host') || 'localhost:3000';
+          rawItem.imageUrl = `${protocol}://${host}/uploads/${savedName}`;
         }
       } catch (imgErr) {
         console.error('Gagal convert base64 image:', imgErr);
@@ -367,7 +387,8 @@ async function startServer() {
     }
 
     const item = sanitizeMenuItem(rawItem);
-    const idx = menu.findIndex(m => m.id === item.id || m.nama.toLowerCase() === item.nama.toLowerCase());
+    const originalNama = rawItem.originalNama;
+    const idx = menu.findIndex(m => m.id === item.id || (originalNama && m.nama.toLowerCase() === originalNama.toLowerCase()) || m.nama.toLowerCase() === item.nama.toLowerCase());
     if (idx >= 0) {
       menu[idx] = { ...menu[idx], ...item };
     } else {
@@ -375,19 +396,30 @@ async function startServer() {
     }
     saveJSON(MENU_FILE, menu);
 
-    // Relay ke Google Apps Script di backend
-    const sheetSync = await relayMenuToAppsScript('saveMenuItem', { item });
+    // Relay ke Google Apps Script di backend (kirim payload lengkap item)
+    const sheetSync = await relayMenuToAppsScript('saveMenuItem', {
+      id: item.nama,
+      nama: item.nama,
+      originalNama: originalNama || item.nama,
+      item
+    });
 
     res.json({ success: true, menu, item, sheetSync });
   });
 
   app.delete('/api/menu/item/:id', async (req, res) => {
     const { id } = req.params;
+    const target = menu.find(m => m.id === id);
+    const targetNama = target ? target.nama : id;
     menu = menu.filter(m => m.id !== id);
     saveJSON(MENU_FILE, menu);
 
-    // Relay ke Google Apps Script di backend
-    const sheetSync = await relayMenuToAppsScript('deleteMenuItem', { id });
+    // Relay ke Google Apps Script di backend dengan nama produk
+    const sheetSync = await relayMenuToAppsScript('deleteMenuItem', {
+      id: targetNama,
+      nama: targetNama,
+      menuId: id
+    });
 
     res.json({ success: true, menu, sheetSync });
   });

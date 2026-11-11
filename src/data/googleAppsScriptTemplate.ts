@@ -189,19 +189,19 @@ function getOrCreateMenuSheet(ss) {
     // Isi Otomatis Menu Default DIMSUMANYU
     var defaultItems = [
       ["menu-1", "KUKUS ORIGINAL ISI 6 PCS", "DIMSUM KUKUS", 25000, "TERSEDIA", "", "TIDAK", ""],
-      ["menu-2", "KUKUS MENTAI ISI 6 PCS", "DIMSUM KUKUS", 32000, "TERSEDIA", "BEST SELLER", "YA", ""],
+      ["menu-2", "KUKUS MENTAI ISI 6 PCS", "DIMSUM KUKUS", 32000, "TERSEDIA", "", "YA", ""],
       ["menu-3", "KUKUS ORIGINAL ISI 8 PCS", "DIMSUM KUKUS", 33000, "TERSEDIA", "", "TIDAK", ""],
-      ["menu-4", "KUKUS MENTAI ISI 8 PCS", "DIMSUM KUKUS", 43000, "TERSEDIA", "BEST SELLER", "YA", ""],
+      ["menu-4", "KUKUS MENTAI ISI 8 PCS", "DIMSUM KUKUS", 43000, "TERSEDIA", "", "YA", ""],
       ["menu-5", "GORENG ORIGINAL ISI 5 PCS", "DIMSUM GORENG", 25000, "TERSEDIA", "", "TIDAK", ""],
-      ["menu-6", "GORENG MENTAI ISI 5 PCS", "DIMSUM GORENG", 35000, "TERSEDIA", "BEST SELLER", "YA", ""],
+      ["menu-6", "GORENG MENTAI ISI 5 PCS", "DIMSUM GORENG", 35000, "TERSEDIA", "", "YA", ""],
       ["menu-7", "MIX ORIGINAL ISI 6 PCS (3 Pcs Kukus Ori + 3 Pcs Goreng Ori)", "DIMSUM MIX", 28000, "TERSEDIA", "", "TIDAK", ""],
-      ["menu-8", "MIX MENTAI ISI 6 PCS (3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai)", "DIMSUM MIX", 34000, "TERSEDIA", "BEST SELLER", "YA", ""],
+      ["menu-8", "MIX MENTAI ISI 6 PCS (3 Pcs Kukus Mentai + 3 Pcs Goreng Mentai)", "DIMSUM MIX", 34000, "TERSEDIA", "", "YA", ""],
       ["menu-9", "MIX ORIGINAL ISI 8 PCS (4 Pcs Kukus Ori + 4 Pcs Goreng Ori)", "DIMSUM MIX", 36000, "TERSEDIA", "", "TIDAK", ""],
-      ["menu-10", "MIX MENTAI ISI 8 PCS (4 Pcs Kukus Mentai + 4 Pcs Goreng Mentai)", "DIMSUM MIX", 47000, "TERSEDIA", "BEST SELLER", "YA", ""],
+      ["menu-10", "MIX MENTAI ISI 8 PCS (4 Pcs Kukus Mentai + 4 Pcs Goreng Mentai)", "DIMSUM MIX", 47000, "TERSEDIA", "", "YA", ""],
       ["menu-11", "NORI ORIGINAL ISI 6 PCS", "DIMSUM NORI", 33000, "TERSEDIA", "", "TIDAK", ""],
-      ["menu-12", "NORI MENTAI ISI 6 PCS", "DIMSUM NORI", 40000, "TERSEDIA", "BEST SELLER", "YA", ""],
+      ["menu-12", "NORI MENTAI ISI 6 PCS", "DIMSUM NORI", 40000, "TERSEDIA", "", "YA", ""],
       ["menu-13", "NORI ORIGINAL ISI 8 PCS", "DIMSUM NORI", 43000, "TERSEDIA", "", "TIDAK", ""],
-      ["menu-14", "NORI MENTAI ISI 8 PCS", "DIMSUM NORI", 52000, "TERSEDIA", "BEST SELLER", "YA", ""],
+      ["menu-14", "NORI MENTAI ISI 8 PCS", "DIMSUM NORI", 52000, "TERSEDIA", "", "YA", ""],
       ["menu-15", "CHILI OIL SPESIAL (CUP)", "EXTRA SAUS", 5000, "TERSEDIA", "Pedas Gurih", "TIDAK", ""],
       ["menu-16", "SAUS MENTAI BAKAR (CUP)", "EXTRA SAUS", 10000, "TERSEDIA", "Creamy Smoky", "TIDAK", ""],
       ["menu-17", "MAYONAISE SAUS (CUP)", "EXTRA SAUS", 4000, "TERSEDIA", "Manis Gurih", "TIDAK", ""]
@@ -451,7 +451,8 @@ function doGet(e) {
   // 5C. Hapus Menu via GET
   if (action === 'deleteMenu' || action === 'deleteMenuItem') {
     var delMenuId = e.parameter.id || e.parameter.menuId;
-    var delMenuRes = deleteMenuItemFromSheet(delMenuId);
+    var delMenuNama = e.parameter.nama;
+    var delMenuRes = deleteMenuItemFromSheet(delMenuId, delMenuNama);
     return ContentService.createTextOutput(JSON.stringify(delMenuRes))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -459,8 +460,9 @@ function doGet(e) {
   // 5D. Ubah Status Ketersediaan Menu via GET
   if (action === 'toggleMenuStatus' || action === 'updateMenuStatus') {
     var tMenuId = e.parameter.id || e.parameter.menuId;
+    var tMenuNama = e.parameter.nama;
     var tStatus = e.parameter.status;
-    var tRes = toggleMenuStatusInSheet(tMenuId, tStatus);
+    var tRes = toggleMenuStatusInSheet(tMenuId, tStatus, tMenuNama);
     return ContentService.createTextOutput(JSON.stringify(tRes))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -468,12 +470,13 @@ function doGet(e) {
   // 5E. Ubah Status Best Seller via GET
   if (action === 'toggleBestSeller' || action === 'setBestSeller' || action === 'updateBestSeller') {
     var bsMenuId = e.parameter.id || e.parameter.menuId;
+    var bsMenuNama = e.parameter.nama;
     var bsVal = e.parameter.isBestSeller;
     var isBsBool = undefined;
     if (bsVal !== undefined) {
       isBsBool = (bsVal === 'true' || bsVal === true || bsVal === 'YA' || bsVal === '1');
     }
-    var bsRes = toggleBestSellerInSheet(bsMenuId, isBsBool);
+    var bsRes = toggleBestSellerInSheet(bsMenuId, isBsBool, bsMenuNama);
     return ContentService.createTextOutput(JSON.stringify(bsRes))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -570,34 +573,36 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Simpan / Update Menu via POST (atau jika payload berisi data menu, JANGAN PERNAH dimasukkan ke pesanan)
-    if (data.action === 'saveMenu' || data.action === 'saveMenuItem' || 
-        (data.id && String(data.id).indexOf('menu-') === 0) ||
-        (data.item && data.item.id && String(data.item.id).indexOf('menu-') === 0) ||
-        (data.kategori && !data.rincianMenu && !data.items)) {
-      var savePostRes = saveMenuItemToSheet(data.item || data);
-      return ContentService.createTextOutput(JSON.stringify(savePostRes))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-
-    // Hapus Menu via POST
-    if (data.action === 'deleteMenu' || data.action === 'deleteMenuItem') {
-      var delPostRes = deleteMenuItemFromSheet(data.id || data.menuId);
-      return ContentService.createTextOutput(JSON.stringify(delPostRes))
+    // Ubah status Best Seller via POST (prioritaskan agar langsung merubah YA / TIDAK pada kolom Best Seller)
+    if (data.action === 'toggleBestSeller' || data.action === 'setBestSeller' || data.action === 'updateBestSeller') {
+      var bsPostRes = toggleBestSellerInSheet(data.id || data.menuId, data.isBestSeller, data.nama);
+      return ContentService.createTextOutput(JSON.stringify(bsPostRes))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
     // Ubah status ketersediaan stok via POST
     if (data.action === 'toggleMenuStatus' || data.action === 'updateMenuStatus') {
-      var togglePostRes = toggleMenuStatusInSheet(data.id || data.menuId, data.status);
+      var togglePostRes = toggleMenuStatusInSheet(data.id || data.menuId, data.status, data.nama);
       return ContentService.createTextOutput(JSON.stringify(togglePostRes))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Ubah status Best Seller via POST
-    if (data.action === 'toggleBestSeller' || data.action === 'setBestSeller' || data.action === 'updateBestSeller') {
-      var bsPostRes = toggleBestSellerInSheet(data.id || data.menuId, data.isBestSeller);
-      return ContentService.createTextOutput(JSON.stringify(bsPostRes))
+    // Hapus Menu via POST
+    if (data.action === 'deleteMenu' || data.action === 'deleteMenuItem') {
+      var delPostRes = deleteMenuItemFromSheet(data.id || data.menuId, data.nama);
+      return ContentService.createTextOutput(JSON.stringify(delPostRes))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Simpan / Update Menu via POST
+    if (data.action === 'saveMenu' || data.action === 'saveMenuItem' || 
+        (!data.action && (
+          (data.id && String(data.id).indexOf('menu-') === 0) ||
+          (data.item && data.item.id && String(data.item.id).indexOf('menu-') === 0) ||
+          (data.kategori && !data.rincianMenu && !data.items)
+        ))) {
+      var savePostRes = saveMenuItemToSheet(data.item || data);
+      return ContentService.createTextOutput(JSON.stringify(savePostRes))
         .setMimeType(ContentService.MimeType.JSON);
     }
     
@@ -844,8 +849,10 @@ function getMenuFromSheet() {
 
     var rawId = colMap.id !== -1 && r[colMap.id] ? String(r[colMap.id]).trim() : ('menu-' + i);
     var rawStatus = colMap.status !== -1 ? String(r[colMap.status] || 'TERSEDIA').trim().toUpperCase() : 'TERSEDIA';
-    var isBest = colMap.bestSeller !== -1 ? (String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'YA' || String(r[colMap.bestSeller] || '').trim().toUpperCase() === 'TRUE' || String(r[colMap.bestSeller] || '').trim() === '1') : false;
-    var img = colMap.imageUrl !== -1 && r[colMap.imageUrl] ? String(r[colMap.imageUrl]).trim() : '';
+    var rawKet = colMap.keterangan !== -1 ? String(r[colMap.keterangan] || '').trim() : '';
+    if (rawKet.toUpperCase() === 'BEST SELLER') {
+      rawKet = '';
+    }
     
     list.push({
       id: rawId,
@@ -853,7 +860,7 @@ function getMenuFromSheet() {
       kategori: kategori,
       harga: harga,
       status: (rawStatus === 'HABIS' || rawStatus === 'KOSONG' || rawStatus === 'OUT_OF_STOCK') ? 'HABIS' : 'TERSEDIA',
-      keterangan: colMap.keterangan !== -1 ? String(r[colMap.keterangan] || '').trim() : '',
+      keterangan: rawKet,
       isBestSeller: isBest,
       imageUrl: img || undefined
     });
@@ -927,49 +934,92 @@ function saveMenuItemToSheet(item) {
     else inputHarga = 25000;
   }
 
-  var targetId = String(item.id || '').trim();
+  var targetId = String(item.id || '').trim().toLowerCase();
   var targetNama = inputNama.toLowerCase();
+  var originalNama = String(item.originalNama || '').trim().toLowerCase();
   var rowIndex = -1;
+
+  // Deteksi indeks baris sintetik jika id berupa menu-X
+  var syntheticIndex = -1;
+  if (targetId.indexOf('menu-') === 0) {
+    var parsedNum = parseInt(targetId.substring(5), 10);
+    if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum < values.length) {
+      syntheticIndex = parsedNum;
+    }
+  }
 
   for (var i = 1; i < values.length; i++) {
     var r = values[i];
-    var rId = colMap.id !== -1 ? String(r[colMap.id] || '').trim() : '';
+    var rId = colMap.id !== -1 ? String(r[colMap.id] || '').trim().toLowerCase() : '';
     var rNama = String(r[colMap.nama] || '').trim().toLowerCase();
-    if ((targetId && rId && rId === targetId) || (rNama && rNama === targetNama) || (targetId && rNama === targetId.toLowerCase())) {
+
+    var matched = false;
+    if (originalNama && rNama === originalNama) matched = true;
+    else if (rNama && rNama === targetNama) matched = true;
+    else if (targetId && rId && rId === targetId) matched = true;
+    else if (targetId && rNama === targetId) matched = true;
+    else if (syntheticIndex === i) matched = true;
+    else if (targetId === ('menu-' + i)) matched = true;
+
+    if (matched) {
       rowIndex = i + 1;
       break;
     }
   }
 
-  var maxCol = Math.max(values[0].length, (colMap.imageUrl !== -1 ? colMap.imageUrl + 1 : 0), (colMap.bestSeller !== -1 ? colMap.bestSeller + 1 : 0));
-  var rowData = new Array(maxCol).fill("");
-  if (colMap.id !== -1) rowData[colMap.id] = targetId || ("menu-" + Date.now());
-  rowData[colMap.nama] = inputNama;
-  rowData[colMap.kategori] = inputKategori;
-  rowData[colMap.harga] = inputHarga;
-  if (colMap.status !== -1) rowData[colMap.status] = String(item.status || "TERSEDIA").toUpperCase();
-  if (colMap.keterangan !== -1) rowData[colMap.keterangan] = String(item.keterangan || "").trim();
-  if (colMap.bestSeller !== -1) {
-    var isBestBool = (item.isBestSeller === true || item.isBestSeller === 'YA' || item.isBestSeller === 'true' || item.isBestSeller === 1);
-    rowData[colMap.bestSeller] = isBestBool ? "YA" : "TIDAK";
-  }
-  if (colMap.imageUrl !== -1) {
-    var imgVal = String(item.imageUrl || "").trim();
-    // Cegah melebihi limit sel 50.000 karakter
-    if (imgVal.length > 40000) imgVal = imgVal.substring(0, 40000);
-    rowData[colMap.imageUrl] = imgVal;
+  // Bersihkan keterangan agar tidak pernah terisi teks "BEST SELLER"
+  var inputKeterangan = String(item.keterangan || '').trim();
+  if (inputKeterangan.toUpperCase() === 'BEST SELLER') {
+    inputKeterangan = '';
   }
 
+  var isBestBool = (item.isBestSeller === true || item.isBestSeller === 'YA' || item.isBestSeller === 'true' || item.isBestSeller === 1);
+
   if (rowIndex > 0) {
-    sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+    // Ambil baris yang ada di spreadsheet agar kolom di sekitarnya (seperti kolom F & G) tidak terhapus
+    var existingRow = values[rowIndex - 1];
+    var maxLen = Math.max(existingRow.length, colMap.bestSeller !== -1 ? colMap.bestSeller + 1 : 0, colMap.imageUrl !== -1 ? colMap.imageUrl + 1 : 0, values[0].length);
+    while (existingRow.length < maxLen) existingRow.push("");
+
+    if (colMap.id !== -1 && item.id) existingRow[colMap.id] = item.id;
+    existingRow[colMap.nama] = inputNama;
+    existingRow[colMap.kategori] = inputKategori;
+    existingRow[colMap.harga] = inputHarga;
+    if (colMap.status !== -1) existingRow[colMap.status] = String(item.status || "TERSEDIA").toUpperCase();
+    if (colMap.keterangan !== -1) existingRow[colMap.keterangan] = inputKeterangan;
+    if (colMap.bestSeller !== -1) {
+      existingRow[colMap.bestSeller] = isBestBool ? "YA" : "TIDAK";
+    }
+    if (colMap.imageUrl !== -1 && item.imageUrl !== undefined) {
+      var imgVal = String(item.imageUrl || "").trim();
+      if (imgVal.length > 40000) imgVal = imgVal.substring(0, 40000);
+      existingRow[colMap.imageUrl] = imgVal;
+    }
+    sheet.getRange(rowIndex, 1, 1, existingRow.length).setValues([existingRow]);
   } else {
+    var maxCol = Math.max(values[0].length, (colMap.imageUrl !== -1 ? colMap.imageUrl + 1 : 0), (colMap.bestSeller !== -1 ? colMap.bestSeller + 1 : 0));
+    var rowData = new Array(maxCol).fill("");
+    if (colMap.id !== -1) rowData[colMap.id] = item.id || ("menu-" + Date.now());
+    rowData[colMap.nama] = inputNama;
+    rowData[colMap.kategori] = inputKategori;
+    rowData[colMap.harga] = inputHarga;
+    if (colMap.status !== -1) rowData[colMap.status] = String(item.status || "TERSEDIA").toUpperCase();
+    if (colMap.keterangan !== -1) rowData[colMap.keterangan] = inputKeterangan;
+    if (colMap.bestSeller !== -1) {
+      rowData[colMap.bestSeller] = isBestBool ? "YA" : "TIDAK";
+    }
+    if (colMap.imageUrl !== -1) {
+      var imgVal = String(item.imageUrl || "").trim();
+      if (imgVal.length > 40000) imgVal = imgVal.substring(0, 40000);
+      rowData[colMap.imageUrl] = imgVal;
+    }
     sheet.appendRow(rowData);
   }
 
-  return { success: true, message: "Menu '" + inputNama + "' berhasil disimpan!", item: item };
+  return { success: true, message: "Menu '" + inputNama + "' berhasil disimpan ke Google Sheets!", item: item };
 }
 
-function toggleBestSellerInSheet(id, isBestSeller) {
+function toggleBestSellerInSheet(id, isBestSeller, optNama) {
   var ss = getTargetSpreadsheet();
   var sheet = getOrCreateMenuSheet(ss);
   var values = sheet.getDataRange().getValues();
@@ -984,11 +1034,29 @@ function toggleBestSellerInSheet(id, isBestSeller) {
   }
 
   var targetId = String(id || '').trim().toLowerCase();
+  var targetNama = String(optNama || '').trim().toLowerCase();
+
+  var syntheticIndex = -1;
+  if (targetId.indexOf('menu-') === 0) {
+    var parsedNum = parseInt(targetId.substring(5), 10);
+    if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum < values.length) {
+      syntheticIndex = parsedNum;
+    }
+  }
+
   for (var i = 1; i < values.length; i++) {
     var r = values[i];
     var rId = colMap.id !== -1 ? String(r[colMap.id] || '').trim().toLowerCase() : '';
     var rNama = String(r[colMap.nama] || '').trim().toLowerCase();
-    if ((targetId && rId && rId === targetId) || (targetId && rNama && rNama === targetId)) {
+
+    var matched = false;
+    if (targetNama && rNama === targetNama) matched = true;
+    else if (targetId && rNama === targetId) matched = true;
+    else if (targetId && rId && rId === targetId) matched = true;
+    else if (syntheticIndex === i) matched = true;
+    else if (targetId === ('menu-' + i)) matched = true;
+
+    if (matched) {
       var currentVal = String(r[colMap.bestSeller] || '').trim().toUpperCase();
       var nextVal = "YA";
       if (typeof isBestSeller === 'boolean') {
@@ -1000,45 +1068,107 @@ function toggleBestSellerInSheet(id, isBestSeller) {
       } else {
         nextVal = (currentVal === "YA" || currentVal === "TRUE") ? "TIDAK" : "YA";
       }
+
+      // 1. TULIS STATUS BEST SELLER HANYA PADA KOLOM 'Best Seller (YA/TIDAK)' SEBAGAI YA ATAU TIDAK
       sheet.getRange(i + 1, colMap.bestSeller + 1).setValue(nextVal);
-      return { success: true, id: id, isBestSeller: nextVal === "YA", value: nextVal };
-    }
-  }
-  return { success: false, message: "Menu '" + id + "' tidak ditemukan di sheet" };
-}
 
-function deleteMenuItemFromSheet(id) {
-  var ss = getTargetSpreadsheet();
-  var sheet = getOrCreateMenuSheet(ss);
-  var values = sheet.getDataRange().getValues();
-  var targetId = String(id || '').trim();
-  for (var i = 1; i < values.length; i++) {
-    if (String(values[i][0]).trim() === targetId) {
-      sheet.deleteRow(i + 1);
-      return { success: true, message: "Menu berhasil dihapus dari spreadsheet" };
-    }
-  }
-  return { success: false, message: "Menu ID tidak ditemukan di spreadsheet" };
-}
-
-function toggleMenuStatusInSheet(id, status) {
-  var ss = getTargetSpreadsheet();
-  var sheet = getOrCreateMenuSheet(ss);
-  var values = sheet.getDataRange().getValues();
-  var targetId = String(id || '').trim();
-  var newStatus = String(status || '').toUpperCase();
-  
-  for (var i = 1; i < values.length; i++) {
-    if (String(values[i][0]).trim() === targetId) {
-      if (!newStatus) {
-        var current = String(values[i][4] || 'TERSEDIA').toUpperCase();
-        newStatus = current === 'TERSEDIA' ? 'HABIS' : 'TERSEDIA';
+      // 2. BERSIHKAN TULISAN 'BEST SELLER' DARI KOLOM KETERANGAN JIKA PERNAH TERSALIN
+      if (colMap.keterangan !== -1) {
+        var existingKet = String(r[colMap.keterangan] || '').trim();
+        if (existingKet.toUpperCase() === 'BEST SELLER') {
+          sheet.getRange(i + 1, colMap.keterangan + 1).setValue("");
+        }
       }
-      sheet.getRange(i + 1, 5).setValue(newStatus);
-      return { success: true, id: targetId, status: newStatus };
+
+      return { success: true, id: id, nama: r[colMap.nama], isBestSeller: nextVal === "YA", value: nextVal };
     }
   }
-  return { success: false, message: "Menu ID tidak ditemukan" };
+  return { success: false, message: "Menu '" + (optNama || id) + "' tidak ditemukan di sheet" };
+}
+
+function deleteMenuItemFromSheet(id, optNama) {
+  var ss = getTargetSpreadsheet();
+  var sheet = getOrCreateMenuSheet(ss);
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return { success: false, message: "Sheet Menu kosong" };
+  
+  var colMap = mapMenuHeaders(values[0]);
+  var targetId = String(id || '').trim().toLowerCase();
+  var targetNama = String(optNama || '').trim().toLowerCase();
+
+  var syntheticIndex = -1;
+  if (targetId.indexOf('menu-') === 0) {
+    var parsedNum = parseInt(targetId.substring(5), 10);
+    if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum < values.length) {
+      syntheticIndex = parsedNum;
+    }
+  }
+
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    var rId = colMap.id !== -1 ? String(r[colMap.id] || '').trim().toLowerCase() : '';
+    var rNama = String(r[colMap.nama] || '').trim().toLowerCase();
+
+    var matched = false;
+    if (targetNama && rNama === targetNama) matched = true;
+    else if (targetId && rNama === targetId) matched = true;
+    else if (targetId && rId && rId === targetId) matched = true;
+    else if (syntheticIndex === i) matched = true;
+    else if (targetId === ('menu-' + i)) matched = true;
+
+    if (matched) {
+      sheet.deleteRow(i + 1);
+      return { success: true, message: "Menu '" + r[colMap.nama] + "' berhasil dihapus dari spreadsheet" };
+    }
+  }
+  return { success: false, message: "Menu '" + (optNama || id) + "' tidak ditemukan di spreadsheet" };
+}
+
+function toggleMenuStatusInSheet(id, status, optNama) {
+  var ss = getTargetSpreadsheet();
+  var sheet = getOrCreateMenuSheet(ss);
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return { success: false, message: "Sheet Menu kosong" };
+  
+  var colMap = mapMenuHeaders(values[0]);
+  if (colMap.status === -1) {
+    colMap.status = 3;
+  }
+
+  var targetId = String(id || '').trim().toLowerCase();
+  var targetNama = String(optNama || '').trim().toLowerCase();
+  var newStatus = String(status || '').toUpperCase();
+
+  var syntheticIndex = -1;
+  if (targetId.indexOf('menu-') === 0) {
+    var parsedNum = parseInt(targetId.substring(5), 10);
+    if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum < values.length) {
+      syntheticIndex = parsedNum;
+    }
+  }
+
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    var rId = colMap.id !== -1 ? String(r[colMap.id] || '').trim().toLowerCase() : '';
+    var rNama = String(r[colMap.nama] || '').trim().toLowerCase();
+
+    var matched = false;
+    if (targetNama && rNama === targetNama) matched = true;
+    else if (targetId && rNama === targetId) matched = true;
+    else if (targetId && rId && rId === targetId) matched = true;
+    else if (syntheticIndex === i) matched = true;
+    else if (targetId === ('menu-' + i)) matched = true;
+
+    if (matched) {
+      if (!newStatus) {
+        var current = String(r[colMap.status] || 'TERSEDIA').toUpperCase();
+        newStatus = (current === 'TERSEDIA' || current === 'READY') ? 'HABIS' : 'TERSEDIA';
+      }
+      sheet.getRange(i + 1, colMap.status + 1).setValue(newStatus);
+      return { success: true, id: id, nama: r[colMap.nama], status: newStatus };
+    }
+  }
+  return { success: false, message: "Menu '" + (optNama || id) + "' tidak ditemukan" };
 }
 
 function updateOrderStatusInSheet(orderId, newStatus) {

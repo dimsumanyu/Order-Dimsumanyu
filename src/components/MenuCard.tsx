@@ -118,6 +118,18 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item, quantity, onUpdateQty 
             <h3 className="font-black text-stone-900 text-[11px] sm:text-[12.5px] leading-snug uppercase tracking-tight group-hover:text-red-700 transition line-clamp-2">
               {item.nama}
             </h3>
+
+            {/* Keterangan Menu (dari Kolom E Spreadsheet) */}
+            {Boolean(
+              item.keterangan &&
+                item.keterangan.trim() &&
+                item.keterangan.trim().toUpperCase() !== 'BEST SELLER' &&
+                item.keterangan.trim() !== '-'
+            ) && (
+              <p className="text-[9.5px] sm:text-[10.5px] text-stone-500 font-normal leading-relaxed line-clamp-2 mt-0.5">
+                {item.keterangan}
+              </p>
+            )}
           </div>
 
           {/* 3. FOOTER: HARGA (TAMPIL PENUH SEBARIS TANPA TITIK-TITIK) & TOMBOL TAMBAH */}

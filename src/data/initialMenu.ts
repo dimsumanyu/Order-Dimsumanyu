@@ -31,7 +31,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'DIMSUM KUKUS',
     harga: 32000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {
@@ -49,7 +49,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'DIMSUM KUKUS',
     harga: 43000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {
@@ -67,7 +67,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'DIMSUM GORENG',
     harga: 35000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {
@@ -103,7 +103,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'PAKET MIX ISI 6',
     harga: 34000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {
@@ -139,7 +139,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'PAKET MIX ISI 8',
     harga: 47000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {
@@ -211,7 +211,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'PAKET FAMILY',
     harga: 134000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {
@@ -256,7 +256,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'PAKET FAMILY MIX',
     harga: 42000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {
@@ -265,7 +265,7 @@ export const INITIAL_MENU: MenuItem[] = [
     kategori: 'PAKET FAMILY MIX',
     harga: 88000,
     status: 'TERSEDIA',
-    keterangan: 'BEST SELLER',
+    keterangan: '',
     isBestSeller: true
   },
   {

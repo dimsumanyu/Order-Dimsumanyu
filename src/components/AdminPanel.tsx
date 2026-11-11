@@ -102,7 +102,7 @@ interface AdminPanelProps {
   onSyncAll: () => Promise<void>;
   onToggleMenuStatus: (id: string) => Promise<void>;
   onResetMenu: () => Promise<void>;
-  onSaveMenuItem?: (item: MenuItem) => Promise<void>;
+  onSaveMenuItem?: (item: MenuItem & { originalNama?: string }) => Promise<void>;
   onDeleteMenuItem?: (id: string) => Promise<void>;
   onToggleBestSeller?: (id: string) => Promise<void>;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => Promise<void>;
@@ -1988,7 +1988,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           isOpen={showMenuEditorModal}
           onClose={() => setShowMenuEditorModal(false)}
           menuItems={menuItems}
-          onSaveMenuItem={async (item: MenuItem) => {
+          onSaveMenuItem={async (item: MenuItem & { originalNama?: string }) => {
             if (onSaveMenuItem) await onSaveMenuItem(item);
           }}
           onDeleteMenuItem={async (id: string) => {
