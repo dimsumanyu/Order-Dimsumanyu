@@ -32,28 +32,22 @@ export const Banner: React.FC = () => {
         </div>
       )}
 
-      {/* Hero Showcase Banner dengan Siluet / Gambar Dimsum Hangat & Klakat Bambu (Sesuai Contoh Gambar 1) */}
-      <div className="relative overflow-hidden rounded-3xl shadow-md border border-stone-800/40 bg-stone-950 min-h-[175px] sm:min-h-[220px] md:min-h-[240px] flex items-end">
+      {/* Hero Showcase Banner dengan Gambar Dimsum Hangat & Klakat Bambu */}
+      <div className="relative overflow-hidden rounded-3xl shadow-md border border-stone-800/40 bg-stone-950 min-h-[185px] sm:min-h-[225px] md:min-h-[250px] flex items-end">
         {/* Background Image: Dimsum Hangat Berasap dalam Klakat Bambu tanpa tulisan apapun */}
         <img
           src={heroDimsumImg}
           alt="Dimsum Kukus Anyu"
-          className="absolute inset-0 w-full h-full object-cover object-center sm:object-right md:object-center brightness-[0.88] contrast-105"
+          className="absolute inset-0 w-full h-full object-cover object-[58%_68%] sm:object-[60%_64%] brightness-110 contrast-105 saturate-110"
         />
 
-        {/* Ambient Dark Gradient Overlays agar teks dan badge tetap kontras & terbaca jelas */}
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/95 via-stone-950/50 to-stone-950/25 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-r from-stone-950/90 via-stone-950/40 to-transparent pointer-events-none" />
+        {/* Ambient Gradient Overlays lembut agar teks terbaca jelas tanpa menggelapkan gambar dimsum */}
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/75 via-stone-950/15 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-stone-950/80 via-stone-950/25 to-transparent pointer-events-none" />
 
         {/* Content Overlay */}
         <div className="relative z-10 p-4 sm:p-5 md:p-6 w-full flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 bg-red-600/90 backdrop-blur-md text-white text-[10px] sm:text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-xs">
-              <span>DIMSUMANYU</span>
-              <span>•</span>
-              <span>BUKA SETIAP HARI</span>
-            </div>
-
             <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2 drop-shadow-md">
               <span>#SensasiNgedaging</span>
               <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 fill-amber-400 inline shrink-0" />

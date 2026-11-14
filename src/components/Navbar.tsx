@@ -25,6 +25,7 @@ interface NavbarProps {
   onAdminLogout: () => void;
   onOpenTrackOrder: () => void;
   onOpenInstallModal: () => void;
+  onOpenCart: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -38,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onAdminLogout,
   onOpenTrackOrder,
   onOpenInstallModal,
+  onOpenCart,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isInstalled } = usePWAInstall();
@@ -117,12 +119,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Cart count pill if in shopping mode */}
+            {/* Cart count button if in shopping mode */}
             {activeView === 'order' && cartCount > 0 && (
-              <div className="flex items-center gap-1 text-xs font-extrabold bg-red-50 text-red-700 border border-red-200 px-2 py-1.5 rounded-xl shadow-xs">
+              <button
+                type="button"
+                onClick={onOpenCart}
+                className="flex items-center gap-1 text-xs font-extrabold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-2 sm:px-2.5 py-1.5 rounded-xl shadow-xs transition cursor-pointer active:scale-95"
+                title="Lihat keranjang belanja"
+              >
                 <ShoppingBag className="w-3.5 h-3.5 text-red-600" />
                 <span>{cartCount}</span>
-              </div>
+              </button>
             )}
 
             {/* Desktop Quick Admin View Switcher (if logged in) */}

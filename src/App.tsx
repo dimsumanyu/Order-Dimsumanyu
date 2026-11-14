@@ -17,10 +17,11 @@ import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { PWAInstallModal } from './components/PWAInstallModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { CartSummary } from './components/CartSummary';
 import { MenuItem, OrderData, AppSettings, ShippingOption, PaymentMethod, OrderStatus } from './types';
 import { INITIAL_MENU, INITIAL_SETTINGS } from './data/initialMenu';
 import { formatRupiah } from './utils/whatsapp';
-import { ArrowRight, Lock, Instagram, Download } from 'lucide-react';
+import { ArrowRight, Lock, Instagram, Download, X } from 'lucide-react';
 
 export function isCorruptedMenuList(list: MenuItem[]): boolean {
   if (!Array.isArray(list) || list.length === 0) return true;
@@ -284,6 +285,7 @@ const isRealCustomerOrder = (o: any): boolean => {
   const [showTrackingModal, setShowTrackingModal] = useState<boolean>(false);
   const [showTrackSearchModal, setShowTrackSearchModal] = useState<boolean>(false);
   const [showPWAInstallModal, setShowPWAInstallModal] = useState<boolean>(false);
+  const [showCartModal, setShowCartModal] = useState<boolean>(false);
   const [myOrderIds, setMyOrderIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('dimsumanyu_my_order_ids');
@@ -1624,6 +1626,7 @@ const isRealCustomerOrder = (o: any): boolean => {
           onAdminLogout={handleAdminLogout}
           onOpenTrackOrder={() => setShowTrackSearchModal(true)}
           onOpenInstallModal={() => setShowPWAInstallModal(true)}
+          onOpenCart={() => setShowCartModal(true)}
         />
 
         <main className="max-w-4xl mx-auto px-2 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-5 w-full max-w-full">
@@ -1763,14 +1766,19 @@ const isRealCustomerOrder = (o: any): boolean => {
       {activeView === 'order' && currentStep === 1 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 z-30 px-3 sm:px-4 py-2.5 sm:py-3 shadow-2xl w-full max-w-full">
           <div className="max-w-4xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
-            <div>
+            <button
+              type="button"
+              onClick={() => cartItemCount > 0 && setShowCartModal(true)}
+              className={`text-left transition ${cartItemCount > 0 ? 'cursor-pointer hover:opacity-80 active:scale-98' : 'cursor-default'}`}
+              title={cartItemCount > 0 ? 'Klik untuk lihat isi keranjang' : undefined}
+            >
               <p className="text-[10px] text-stone-400 uppercase font-bold tracking-wider">
                 Total ({cartItemCount} Porsi):
               </p>
               <p className="font-black text-red-600 text-sm sm:text-lg leading-tight">
                 {formatRupiah(totalCartAmount)}
               </p>
-            </div>
+            </button>
 
             <button
               onClick={handleProceedToStep2}
@@ -1784,6 +1792,45 @@ const isRealCustomerOrder = (o: any): boolean => {
               <span>PESAN SEKARANG</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cart Drawer / Modal */}
+      {showCartModal && (
+        <div
+          onClick={() => setShowCartModal(false)}
+          className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full sm:max-w-lg bg-stone-50 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
+          >
+            <div className="bg-white px-4 py-3 border-b border-stone-200 flex items-center justify-between">
+              <span className="font-black text-stone-900 text-sm">
+                Keranjang Belanja Anda
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCartModal(false)}
+                className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                aria-label="Tutup keranjang"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 sm:p-4 max-h-[80vh] overflow-y-auto">
+              <CartSummary
+                cart={cart}
+                menuItems={menuItems}
+                onUpdateQty={handleUpdateQty}
+                onClearCart={handleClearCart}
+                onProceed={() => {
+                  setShowCartModal(false);
+                  handleProceedToStep2();
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
